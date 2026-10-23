@@ -1,6 +1,7 @@
 import { TimeBlockEntity, DayOfWeek, classifyBlockType } from '../entities/time-block.entity';
 import { calculateLuminanceContrast } from './teacher-color.service';
 import { toTitleCase, getShortTeacherName, getFullTeacherName } from './teacher-visual-identity.service';
+import { getTeacherExcelIdentity, resolveOfficialTeacherEntry } from './teacher-normalization.service';
 import { DEFAULT_LOGO_BASE64 } from './default-logo-base64';
 import { generateWeekHeaders } from './ChronologyEngine';
 import { resolveCanonicalGradeName, normalizeTimeBlocksGrades } from './grade-normalization.service';
@@ -172,12 +173,21 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
     return 'morning';
   };
 
-  // Build teacher map for quick lookup
+  // Build teacher map for quick lookup with locked canonical colors
   const teacherMap = new Map<string, { name: string; color: string }>();
   teachers.forEach((t) => {
-    const color = t.color_hex || t.color || '#007DC5';
-    const name = t.displayName || 'Docente';
+    const official = resolveOfficialTeacherEntry(t.id, t.displayName);
+    const identity = getTeacherExcelIdentity(t.id, t.displayName);
+    const color = identity.color_hex || t.color_hex || t.color || '#007DC5';
+    const name = getFullTeacherName(t.id, t.displayName || 'Docente');
     teacherMap.set(t.id, { name, color });
+    if (official) {
+      if (official.id) {
+        teacherMap.set(official.id, { name, color });
+      }
+      teacherMap.set(official.canonicalName.toLowerCase().trim(), { name, color });
+      teacherMap.set(official.shortName.toLowerCase().trim(), { name, color });
+    }
     if (t.displayName) {
       teacherMap.set(t.displayName.toLowerCase().trim(), { name, color });
     }
@@ -213,14 +223,17 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
   // Prepare sanitized JSON payload for client-side filtering
   const normalizedTimeBlocks = normalizeTimeBlocksGrades(timeBlocks);
   const scheduleData = normalizedTimeBlocks.filter(isAssignedBlock).map((b) => {
-    const teacherInfo = teacherMap.get(b.teacherId) || teacherMap.get(b.teacherName?.toLowerCase().trim() || '') || {
-      name: b.teacherName || 'Sin asignar',
-      color: '#007DC5',
-    };
+    const fallbackIdentity = getTeacherExcelIdentity(b.teacherId, b.teacherName);
+    const teacherInfo =
+      teacherMap.get(b.teacherId) ||
+      teacherMap.get(b.teacherName?.toLowerCase().trim() || '') || {
+        name: b.teacherName || 'Sin asignar',
+        color: fallbackIdentity.color_hex,
+      };
 
     const teacherShortName = getShortTeacherName(b.teacherId, b.teacherName || teacherInfo.name || 'Sin Asignar');
     const teacherFullName = getFullTeacherName(b.teacherId, teacherInfo.name || b.teacherName || 'Sin Asignar');
-    const colorHex = teacherInfo.color || '#034EA2';
+    const colorHex = fallbackIdentity.color_hex || teacherInfo.color || '#034EA2';
     const initials = getFirstAndLastNameInitials(teacherShortName);
     const contrast = calculateLuminanceContrast(colorHex) === 'text-white' ? '#ffffff' : '#111827';
     
@@ -2010,11 +2023,14 @@ export function savePublicScheduleSnapshot(
       totalTeachers: activeTeachers.length,
     },
     timeBlocks: normalizeTimeBlocksGrades(timeBlocks),
-    teachers: activeTeachers.map((t) => ({
-      id: t.id,
-      displayName: t.displayName || '',
-      color: t.color_hex || t.color || '#007DC5',
-    })),
+    teachers: activeTeachers.map((t) => {
+      const identity = getTeacherExcelIdentity(t.id, t.displayName);
+      return {
+        id: t.id,
+        displayName: getFullTeacherName(t.id, t.displayName || ''),
+        color: identity.color_hex || t.color_hex || t.color || '#007DC5',
+      };
+    }),
     dayConfigs: effectiveDayConfigs,
   };
 
@@ -2037,6 +2053,16 @@ export function getPublicScheduleSnapshot(): PublicScheduleSnapshot | null {
     if (raw) {
       const parsed = JSON.parse(raw) as PublicScheduleSnapshot;
       parsed.dayConfigs = resolveEffectiveDayConfigs(parsed.dayConfigs);
+      if (Array.isArray(parsed.teachers)) {
+        parsed.teachers = parsed.teachers.map((t) => {
+          const identity = getTeacherExcelIdentity(t.id, t.displayName);
+          return {
+            ...t,
+            displayName: getFullTeacherName(t.id, t.displayName || ''),
+            color: identity.color_hex || t.color || '#007DC5',
+          };
+        });
+      }
       return parsed;
     }
   } catch (err) {

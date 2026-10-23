@@ -1,5 +1,6 @@
 import { IUserRepository } from '../../domain/repositories/iuser.repository';
 import { UserEntity, UserRole } from '../../domain/entities/user.entity';
+import { getTeacherExcelIdentity } from '../../domain/services/teacher-normalization.service';
 
 const LS_BACKUP_KEY = 'ievf_users_v1';
 
@@ -14,9 +15,14 @@ function normalizeUserRecord(u: UserEntity): UserEntity {
   let shortName = u.shortName;
   if (u.id === 't-m-isabel') shortName = 'Mª Isabel Giraldo';
   if (u.id === 't-alejandra') shortName = 'Alejandra Pérez';
+  if (u.id === 't-betty') shortName = 'Betty Vásquez';
+  const lockedColor = getTeacherExcelIdentity(u.id, u.displayName).color_hex || u.color_hex || u.color || '#007DC5';
   return {
     ...u,
     shortName,
+    color: lockedColor,
+    color_hex: lockedColor,
+    avatarColor: lockedColor,
     maxWeeklyHours: !u.maxWeeklyHours || u.maxWeeklyHours === 22 ? 24 : u.maxWeeklyHours,
   };
 }

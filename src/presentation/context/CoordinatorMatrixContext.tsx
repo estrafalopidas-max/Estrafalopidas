@@ -2,8 +2,9 @@ import React, { createContext, useContext, useState, useCallback, useMemo, useRe
 import { ShiftType } from '../../domain/entities/grade.entity';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { getTeacherVisualIdentity } from '../../domain/services/teacher-visual-identity.service';
+import { resolveOfficialTeacherEntry } from '../../domain/services/teacher-normalization.service';
 import { FirestoreUserRepository } from '../../infrastructure/repositories/firestore-user.repository';
-import { ensureSeedDataLoaded } from '../../infrastructure/seed/initial-seed';
+import { ensureSeedDataLoaded, SEED_TEACHERS } from '../../infrastructure/seed/initial-seed';
 import { ALL_OFFICIAL_MATERIAS } from '../../domain/constants/subjects';
 import { generateWeekHeaders, getCurrentWeekText, DynamicDayHeader, getOrdinalSuffix } from '../../domain/services/ChronologyEngine';
 
@@ -115,7 +116,7 @@ const defaultContext: CoordinatorMatrixContextType = {
   setCurrentPeriod: () => {},
   teachers: [],
   setTeachers: () => {},
-  getTeacherColor: (_, name) => getTeacherVisualIdentity(name).color_hex,
+  getTeacherColor: (id, name) => getTeacherVisualIdentity(id, name).color_hex,
   isTeacherModalOpen: false,
   setIsTeacherModalOpen: () => {},
   selectedTeacherForEdit: null,
@@ -185,7 +186,20 @@ export const CoordinatorMatrixProvider: React.FC<{ children: React.ReactNode }> 
     `${weekInfo.periodNumber}${getOrdinalSuffix(weekInfo.periodNumber)} Periodo`
   );
 
-  const [teachers, setTeachers] = useState<UserEntity[]>([]);
+  const [teachers, setTeachers] = useState<UserEntity[]>(() => {
+    try {
+      ensureSeedDataLoaded();
+      const raw = localStorage.getItem('ievf_users_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw) as UserEntity[];
+        const list = parsed.filter((u) => !u.role || u.role === 'teacher');
+        if (list.length > 0) return list;
+      }
+    } catch {
+      // ignore
+    }
+    return SEED_TEACHERS;
+  });
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [selectedTeacherForEdit, setSelectedTeacherForEdit] = useState<UserEntity | null>(null);
 
@@ -293,6 +307,18 @@ export const CoordinatorMatrixProvider: React.FC<{ children: React.ReactNode }> 
 
   const getTeacherColor = useCallback(
     (teacherId?: string, teacherName?: string) => {
+      const official = resolveOfficialTeacherEntry(teacherId, teacherName);
+      if (official) {
+        const foundOfficial = teachers.find(
+          (t) =>
+            (official.id && t.id === official.id) ||
+            t.displayName?.trim().toLowerCase() === official.canonicalName.toLowerCase() ||
+            t.shortName?.trim().toLowerCase() === official.shortName.toLowerCase()
+        );
+        if (foundOfficial?.color_hex) return foundOfficial.color_hex;
+        if (foundOfficial?.color) return foundOfficial.color;
+        if (official.originalExcelHex) return official.originalExcelHex;
+      }
       if (teacherId) {
         const found = teachers.find((t) => t.id === teacherId);
         if (found?.color_hex) return found.color_hex;
@@ -308,7 +334,7 @@ export const CoordinatorMatrixProvider: React.FC<{ children: React.ReactNode }> 
         if (foundByName?.color_hex) return foundByName.color_hex;
         if (foundByName?.color) return foundByName.color;
       }
-      return getTeacherVisualIdentity(teacherName).color_hex;
+      return getTeacherVisualIdentity(teacherId, teacherName).color_hex;
     },
     [teachers]
   );

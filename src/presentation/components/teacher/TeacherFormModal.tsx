@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, UserPlus, UserCog, Check } from 'lucide-react';
+import { X, Save, UserPlus, UserCog, Check, Lock } from 'lucide-react';
 import { UserEntity } from '../../../domain/entities/user.entity';
 import { FirestoreUserRepository } from '../../../infrastructure/repositories/firestore-user.repository';
 import { useCoordinatorMatrix } from '../../context/CoordinatorMatrixContext';
 import { ALL_OFFICIAL_MATERIAS } from '../../../domain/constants/subjects';
 import { VILLA_FLORA_PALETTE } from '../../../domain/services/teacher-color.service';
-import { getFullTeacherName, getShortTeacherName } from '../../../domain/services/teacher-visual-identity.service';
+import { getFullTeacherName, getShortTeacherName, getTeacherVisualIdentity } from '../../../domain/services/teacher-visual-identity.service';
 
 interface TeacherFormModalProps {
   isOpen: boolean;
@@ -41,7 +41,8 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
           ? 24
           : teacher.maxWeeklyHours
       );
-      setColorHex(teacher.color_hex || teacher.color || '#007DC5');
+      const lockedHex = getTeacherVisualIdentity(teacher.id, teacher.displayName).color_hex;
+      setColorHex(lockedHex || teacher.color_hex || teacher.color || '#007DC5');
       setSelectedSubjects(teacher.subjects || teacher.allowedSubjects || teacher.specialty || []);
     } else {
       setDisplayName('');
@@ -79,8 +80,8 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
         email: email.trim() || `${cleanFull.toLowerCase().replace(/\s+/g, '.')}@villaflora.edu.co`,
         role: 'teacher',
         maxWeeklyHours: Number(maxWeeklyHours) || 24,
-        color_hex: colorHex,
-        color: colorHex,
+        color_hex: teacher ? getTeacherVisualIdentity(teacher.id, cleanFull).color_hex : colorHex,
+        color: teacher ? getTeacherVisualIdentity(teacher.id, cleanFull).color_hex : colorHex,
         allowedSubjects: selectedSubjects,
         subjects: selectedSubjects,
         specialty: selectedSubjects,
@@ -201,22 +202,38 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
           </div>
 
           <div>
-            <label className="font-bold text-slate-700 block mb-1.5">Color Identificador en Matriz</label>
-            <div className="flex flex-wrap gap-2">
-              {VILLA_FLORA_PALETTE.slice(0, 18).map((hex) => (
-                <button
-                  key={hex}
-                  type="button"
-                  onClick={() => setColorHex(hex)}
-                  className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition cursor-pointer ${
-                    colorHex === hex ? 'border-slate-900 scale-110 shadow-sm' : 'border-transparent'
-                  }`}
-                  style={{ backgroundColor: hex }}
+            <label className="font-bold text-slate-700 block mb-1.5">
+              Color Identificador en Matriz {teacher ? '(Bloqueado Ad Perpetuum)' : ''}
+            </label>
+            {teacher ? (
+              <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                <div
+                  className="w-7 h-7 rounded-lg border-2 border-slate-900/20 shadow-xs shrink-0 flex items-center justify-center"
+                  style={{ backgroundColor: colorHex }}
                 >
-                  {colorHex === hex && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
-                </button>
-              ))}
-            </div>
+                  <Lock className="w-3.5 h-3.5 text-white drop-shadow" />
+                </div>
+                <div className="text-[11px] text-slate-600 font-medium">
+                  Color institucional consolidado y bloqueado permanentemente ({colorHex.toUpperCase()}).
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {VILLA_FLORA_PALETTE.slice(0, 18).map((hex) => (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => setColorHex(hex)}
+                    className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition cursor-pointer ${
+                      colorHex === hex ? 'border-slate-900 scale-110 shadow-sm' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: hex }}
+                  >
+                    {colorHex === hex && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

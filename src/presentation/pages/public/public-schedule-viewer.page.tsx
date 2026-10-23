@@ -27,6 +27,9 @@ import { ShiftType } from '../../../domain/entities/grade.entity';
 import { UserEntity } from '../../../domain/entities/user.entity';
 import { getTodayDayOfWeek } from '../../../domain/services/ChronologyEngine';
 import { normalizeTimeBlocksGrades } from '../../../domain/services/grade-normalization.service';
+import { ensureSeedDataLoaded } from '../../../infrastructure/seed/initial-seed';
+import { getTeacherExcelIdentity } from '../../../domain/services/teacher-normalization.service';
+import { getFullTeacherName } from '../../../domain/services/teacher-visual-identity.service';
 
 const DAYS: { key: DayOfWeek; label: string }[] = [
   { key: 'lunes', label: 'Lunes' },
@@ -224,6 +227,7 @@ export const PublicScheduleViewerPage: React.FC = () => {
 
   // Initial local snapshot or fallback
   const initialSnapshot = useMemo<PublicScheduleSnapshot | null>(() => {
+    ensureSeedDataLoaded();
     const snap = getPublicScheduleSnapshot();
     if (snap && snap.timeBlocks && snap.timeBlocks.length > 0) {
       return snap;
@@ -244,11 +248,14 @@ export const PublicScheduleViewerPage: React.FC = () => {
           totalTeachers: users.length,
         },
         timeBlocks: blocks,
-        teachers: users.map((u) => ({
-          id: u.id,
-          displayName: u.displayName || 'Docente',
-          color: u.color_hex || u.color || '#007DC5',
-        })),
+        teachers: users.map((u) => {
+          const identity = getTeacherExcelIdentity(u.id, u.displayName);
+          return {
+            id: u.id,
+            displayName: getFullTeacherName(u.id, u.displayName || 'Docente'),
+            color: identity.color_hex || u.color_hex || u.color || '#007DC5',
+          };
+        }),
         dayConfigs: resolveEffectiveDayConfigs(),
       };
     } catch {
@@ -315,7 +322,17 @@ export const PublicScheduleViewerPage: React.FC = () => {
     () => normalizeTimeBlocksGrades(rawTimeBlocks),
     [rawTimeBlocks]
   );
-  const teachers = snapshot?.teachers || [];
+  const teachers = useMemo(() => {
+    const rawList = snapshot?.teachers || [];
+    return rawList.map((t) => {
+      const identity = getTeacherExcelIdentity(t.id, t.displayName);
+      return {
+        ...t,
+        displayName: getFullTeacherName(t.id, t.displayName || 'Docente'),
+        color: identity.color_hex || t.color || '#007DC5',
+      };
+    });
+  }, [snapshot?.teachers]);
   const dayConfigs = useMemo(
     () => resolveEffectiveDayConfigs(snapshot?.dayConfigs),
     [snapshot?.dayConfigs]

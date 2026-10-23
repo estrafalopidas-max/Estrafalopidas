@@ -103,6 +103,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Yessica Bolívar',
     pdfName: 'Bolivar Bolivar Yessica',
     groupDirection: 'TS-01',
+    colorHex: '#60A5FA',
     aliases: ['YESSICA', 'YESSICA BOLIVAR', 'DOCENTE TITULAR TRANSICIÓN 1', 'DOCENTE TITULAR TRANSICION 1'],
   },
   {
@@ -111,6 +112,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Ana Monsalve',
     pdfName: 'Monsalve Garcia Ana Maria',
     groupDirection: 'TS-02',
+    colorHex: '#14532D',
     aliases: ['ANA MONSALVE', 'ANA MARIA MONSALVE', 'DOCENTE TITULAR TRANSICIÓN 2', 'DOCENTE TITULAR TRANSICION 2'],
   },
   {
@@ -119,6 +121,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Mariluz Martínez',
     pdfName: 'Martinez Cortes Mariluz Viviana',
     groupDirection: '01-01',
+    colorHex: '#7F1D1D',
     aliases: ['MARILUZ', 'MARILUZ MARTINEZ', 'DOCENTE TITULAR 1.1'],
   },
   {
@@ -127,6 +130,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Daniela Murillo',
     pdfName: 'Murillo Rueda Daniela Maria',
     groupDirection: '01-02',
+    colorHex: '#F87171',
     aliases: ['DANIELA', 'DANIELA MURILLO', 'DOCENTE TITULAR 1.2'],
   },
   {
@@ -135,6 +139,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Laura Arroyave',
     pdfName: 'Arroyave Mejia Laura',
     groupDirection: '02-01',
+    colorHex: '#4C1D95',
     aliases: ['LAURA ARROYAVE', 'DOCENTE TITULAR 2.1'],
   },
   {
@@ -143,6 +148,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Juliana Arias',
     pdfName: 'Arias Suarez Juliana',
     groupDirection: '02-02',
+    colorHex: '#A78BFA',
     aliases: ['JULIANA', 'JULIANA ARIAS', 'DOCENTE TITULAR 2.2'],
   },
   {
@@ -151,6 +157,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Silvia Vanegas',
     pdfName: 'Vanegas Villa Silvia Rosa',
     groupDirection: '03-01',
+    colorHex: '#78350F',
     aliases: ['SILVIA', 'SILVIA VANEGAS', 'DOCENTE TITULAR 3.1'],
   },
   {
@@ -159,6 +166,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Mary Mesa',
     pdfName: 'Mesa Osorio Mary Luz',
     groupDirection: '03-02',
+    colorHex: '#FBBF24',
     aliases: ['MARY', 'MARY LUZ', 'MARY MESA', 'DOCENTE TITULAR 3.2'],
   },
   {
@@ -167,6 +175,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Eliana Ascuntar',
     pdfName: 'Ascuntar Ascuntar Eliana Marina',
     groupDirection: '03-03',
+    colorHex: '#0E7490',
     aliases: ['ELIANA ASCUNTAR', 'ELIANA MARINA', 'DOCENTE TITULAR 3.3'],
   },
   {
@@ -175,6 +184,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Gleider Guerra',
     pdfName: 'Guerra Ortiz Gleider Yael',
     groupDirection: '04-01',
+    colorHex: '#38BDF8',
     aliases: ['GLEIDER', 'GLEIDER GUERRA', 'DOCENTE TITULAR 4.1'],
   },
   {
@@ -183,6 +193,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Edelmira Mena',
     pdfName: 'Mena Mosquera Edelmira',
     groupDirection: '04-02',
+    colorHex: '#831843',
     aliases: ['EDELMIRA', 'EDELMIRA MENA', 'DOCENTE TITULAR 4.2'],
   },
   {
@@ -191,6 +202,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Cristina Henao',
     pdfName: 'Henao Taborda Cristina Liceth',
     groupDirection: '05-01',
+    colorHex: '#F472B6',
     aliases: ['CRISTINA', 'CRISTINA HENAO', 'DOCENTE TITULAR 5.1'],
   },
   {
@@ -199,6 +211,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Luis Williams',
     pdfName: 'Williams Florez Luis Eduardo',
     groupDirection: '05-02',
+    colorHex: '#312E81',
     aliases: ['LUIS WILLIAMS', 'LUIS EDUARDO', 'WILLIAMS', 'DOCENTE TITULAR 5.2'],
   },
   {
@@ -207,6 +220,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Mª Isabel Giraldo',
     pdfName: 'Giraldo Rojas Maria Isabel',
     groupDirection: '06-01',
+    colorHex: '#818CF8',
     aliases: ['M ISABEL', 'Mª ISABEL GIRALDO', 'MARIA ISABEL', 'ISABEL GIRALDO', 'MARIA GIRALDO'],
   },
   {
@@ -224,6 +238,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Diana Silva',
     pdfName: 'Silva Granda Diana Yasmin',
     groupDirection: '07-01',
+    colorHex: '#7C2D12',
     aliases: ['DIANA', 'DIANA SILVA', 'DIANA YASMIN'],
   },
   {
@@ -232,6 +247,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Eliana Osorio',
     pdfName: 'Osorio Zapata Eliana Maria',
     groupDirection: '07-02',
+    colorHex: '#FB923C',
     aliases: ['ELIANA', 'ELIANA OSORIO', 'ELIANA MARIA'],
   },
   {
@@ -240,6 +256,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Linda Montoya',
     pdfName: 'Montoya Vega Linda Patricia',
     groupDirection: '08-01',
+    colorHex: '#064E3B',
     aliases: ['LINDA', 'LINDA MONTOYA', 'LINDA PATRICIA'],
   },
   {
@@ -248,6 +265,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Diego Castaño',
     pdfName: 'Castaño Aristizabal Diego Alexander',
     groupDirection: '08-02',
+    colorHex: '#6EE7B7',
     aliases: ['DIEGO', 'DIEGO CASTAÑO', 'DIEGO CASTANO'],
   },
   {
@@ -256,14 +274,16 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Katia Agualimpia',
     pdfName: 'Agualimpia Puerta Katia Danesa',
     groupDirection: '09-01',
+    colorHex: '#581C87',
     aliases: ['KATIA', 'KATIA AGUALIMPIA'],
   },
   {
     id: 't-betty',
     fullName: 'María Betty Vásquez Vélez',
-    shortName: 'María Vásquez',
+    shortName: 'Betty Vásquez',
     pdfName: 'Vasquez Velez Maria Betty',
     groupDirection: '09-02',
+    colorHex: '#C084FC',
     aliases: ['BETTY', 'MARIA BETTY', 'BETTY VASQUEZ', 'MARIA VASQUEZ'],
   },
   {
@@ -272,6 +292,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Alejandra Pérez',
     pdfName: 'Perez Pino Maria Alejandra',
     groupDirection: '10-01',
+    colorHex: '#134E4A',
     aliases: ['ALEJANDRA', 'MARIA ALEJANDRA', 'ALEJANDRA PEREZ', 'MARIA PEREZ'],
   },
   {
@@ -280,6 +301,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Lorena Lopera',
     pdfName: 'Lopera Mazo Lizhet Lorena',
     groupDirection: '10-02',
+    colorHex: '#2DD4BF',
     aliases: ['LORENA L', 'LIZHET', 'LIZHET LOPERA', 'LORENA LOPERA', 't-lizhet'],
   },
   {
@@ -288,6 +310,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Natalia Caro',
     pdfName: 'Caro Sanchez Natalia Andrea',
     groupDirection: '11-01',
+    colorHex: '#854D0E',
     aliases: ['NATALIA', 'NATALIA CARO'],
   },
 
@@ -298,6 +321,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Laura Gallego',
     pdfName: 'Gallego Cortes Laura',
     groupDirection: 'Sin asignación',
+    colorHex: '#FDE047',
     aliases: ['LAURA', 'LAURA GALLEGO'],
   },
   {
@@ -306,6 +330,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Omar Mosquera',
     pdfName: 'Mosquera Perea Gleysher Omar',
     groupDirection: 'Sin asignación',
+    colorHex: '#0F172A',
     entrySchedule: {
       defaultEntryTime: '09:25',
       exceptions: { jueves: '06:10' },
@@ -328,6 +353,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Liscy Palacios',
     pdfName: 'Palacios Ibarguen Liscy Vanessa',
     groupDirection: 'Sin asignación',
+    colorHex: '#94A3B8',
     aliases: ['LISCY', 'LISCY PALACIOS', 'LORENA M', 't-lorena-m'],
   },
   {
@@ -345,6 +371,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Camilo Torres',
     pdfName: 'Torres Charry Camilo Andres',
     groupDirection: 'Sin asignación',
+    colorHex: '#701A75',
     aliases: ['CAMILO', 'CAMILO TORRES'],
   },
   {
@@ -353,6 +380,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Alexander Uribe',
     pdfName: 'Uribe Montalvo Alexander',
     groupDirection: 'Sin asignación',
+    colorHex: '#E879F9',
     entrySchedule: {
       defaultEntryTime: '09:25',
       exceptions: { lunes: '06:10' },
@@ -366,6 +394,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Sara Casafus',
     pdfName: 'Casafus Sara',
     groupDirection: 'Sin asignación',
+    colorHex: '#365314',
     aliases: ['SARA', 'SARA CASAFUS', 't-sara'],
   },
   {
@@ -374,6 +403,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     shortName: 'Paola',
     pdfName: 'Paola',
     groupDirection: 'Sin asignación',
+    colorHex: '#A3E635',
     aliases: ['PAOLA', 't-paola'],
   },
 ];
@@ -588,23 +618,35 @@ export function hexToRgba(hex: string, alpha: number = 0.2): string {
 }
 
 /**
- * In-memory / storage lookup for persistent teacher color
+ * In-memory / storage lookup for persistent locked teacher color (Ad Perpetuum)
  */
 export function getTeacherColorFromStorage(teacherId?: string | null, teacherName?: string | null): string | null {
   try {
+    const resolvedEntry = resolveOfficialTeacherEntry(teacherId, teacherName);
+    const canonicalId = (resolvedEntry?.id || teacherId || '').trim().toLowerCase();
+    const cleanId = (teacherId || '').trim().toLowerCase();
+    const cleanName = (teacherName || '').trim().toLowerCase();
+    const canonicalLower = resolvedEntry?.canonicalName.toLowerCase() || '';
+    const shortLower = resolvedEntry?.shortName.toLowerCase() || '';
+
+    // 1. Check permanent locked colors map ('ievf_locked_teacher_colors_v1')
+    const lockedRaw = localStorage.getItem('ievf_locked_teacher_colors_v1');
+    if (lockedRaw) {
+      const lockedMap: Record<string, string> = JSON.parse(lockedRaw);
+      if (resolvedEntry?.id && lockedMap[resolvedEntry.id]) return lockedMap[resolvedEntry.id];
+      if (teacherId && lockedMap[teacherId.trim()]) return lockedMap[teacherId.trim()];
+      if (canonicalId && lockedMap[canonicalId]) return lockedMap[canonicalId];
+    }
+
+    // 2. Check active teacher profiles ('ievf_users_v1')
     const raw = localStorage.getItem('ievf_users_v1');
     if (raw) {
       const users: Array<{ id: string; displayName: string; shortName?: string; color?: string; color_hex?: string; avatarColor?: string }> = JSON.parse(raw);
-      const cleanId = (teacherId || '').trim().toLowerCase();
-      const cleanName = (teacherName || '').trim().toLowerCase();
-      const resolvedEntry = resolveOfficialTeacherEntry(teacherId, teacherName);
-      const canonicalLower = resolvedEntry?.canonicalName.toLowerCase() || '';
-      const shortLower = resolvedEntry?.shortName.toLowerCase() || '';
-
       const match = users.find((u) => {
         const uId = (u.id || '').trim().toLowerCase();
         const uName = (u.displayName || '').trim().toLowerCase();
         const uShort = (u.shortName || '').trim().toLowerCase();
+        if (canonicalId && uId === canonicalId) return true;
         if (cleanId && uId === cleanId) return true;
         if (cleanName && (uName === cleanName || uShort === cleanName)) return true;
         if (canonicalLower && uName === canonicalLower) return true;
@@ -615,6 +657,25 @@ export function getTeacherColorFromStorage(teacherId?: string | null, teacherNam
       if (match?.color_hex) return match.color_hex;
       if (match?.color) return match.color;
       if (match?.avatarColor) return match.avatarColor;
+    }
+
+    // 3. Check published public schedule snapshot ('ievf_public_schedule_snapshot')
+    const snapRaw = localStorage.getItem('ievf_public_schedule_snapshot');
+    if (snapRaw) {
+      const snap = JSON.parse(snapRaw);
+      if (Array.isArray(snap?.teachers)) {
+        const snapMatch = snap.teachers.find((t: any) => {
+          const tId = String(t?.id || '').trim().toLowerCase();
+          const tName = String(t?.displayName || '').trim().toLowerCase();
+          if (canonicalId && tId === canonicalId) return true;
+          if (cleanId && tId === cleanId) return true;
+          if (cleanName && tName === cleanName) return true;
+          if (canonicalLower && tName === canonicalLower) return true;
+          if (shortLower && tName === shortLower) return true;
+          return false;
+        });
+        if (snapMatch?.color) return snapMatch.color;
+      }
     }
   } catch {}
   return null;
@@ -680,10 +741,10 @@ export function getTeacherExcelIdentity(
   const shortName = matchedEntry?.shortName || getShortTeacherName(rawId, rawName);
   const initials = getTeacherInitials(shortName);
 
-  // 1. First priority: Persistent color in database profile (docente.color_hex / docente.color)
-  const storedColor = getTeacherColorFromStorage(rawId, canonicalName);
+  // 1. First priority: Persistent locked color in storage (locked map / user profile / snapshot)
+  const storedColor = getTeacherColorFromStorage(matchedEntry?.id || rawId, canonicalName);
 
-  // 2. Second priority: Manual patch override if specified in dictionary
+  // 2. Second priority: Canonical locked color in official roster dictionary
   const dictionaryColor = matchedEntry?.originalExcelHex;
 
   // 3. Third priority: Deterministic selection from curated VILLA_FLORA_PALETTE
@@ -694,7 +755,7 @@ export function getTeacherExcelIdentity(
   const contrastText = contrastClass === 'text-white' ? '#FFFFFF' : '#1F2937';
 
   return {
-    id: rawId || canonicalName,
+    id: matchedEntry?.id || rawId || canonicalName,
     originalName: rawName || rawId,
     normalizedName: canonicalName,
     shortName,

@@ -221,8 +221,12 @@ export const MainLayout: React.FC = () => {
 
   // Ejecución y Limpieza de Factory Reset tras Hard-Confirm en ResetConfirmationModal
   const handleExecuteFactoryReset = useCallback(async () => {
-    // 1. Vaciar por completo el localStorage
+    // 1. Vaciar el localStorage preservando los colores bloqueados ad perpetuum
+    const lockedColorsBackup = localStorage.getItem('ievf_locked_teacher_colors_v1');
     localStorage.clear();
+    if (lockedColorsBackup) {
+      localStorage.setItem('ievf_locked_teacher_colors_v1', lockedColorsBackup);
+    }
 
     // 2. Restaurar semilla institucional oficial del MEN
     ensureSeedDataLoaded();

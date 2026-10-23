@@ -5,7 +5,12 @@ import { ClassroomEntity } from '../../domain/entities/classroom.entity';
 import { AbsenceRequestEntity } from '../../domain/entities/absence-request.entity';
 import { getNextAvailableTeacherColor } from '../../domain/services/teacher-color.service';
 import { getSubjectShortName } from '../../domain/constants/subjects';
-import { getShortTeacherName, resolveOfficialTeacherEntry } from '../../domain/services/teacher-normalization.service';
+import {
+  getShortTeacherName,
+  getFullTeacherName,
+  resolveOfficialTeacherEntry,
+  updateTeacherDictionaryColor,
+} from '../../domain/services/teacher-normalization.service';
 import excelSeedData from './excel-seed-data.json';
 
 const PRIMARIA_FULL_SUBJECTS = [
@@ -491,7 +496,7 @@ const RAW_SEED_TEACHERS: Omit<UserEntity, 'allowedSubjects'>[] = [
     id: 't-betty',
     email: 'maria.vasquez@ievillaflora.edu.co',
     displayName: 'María Betty Vásquez Vélez',
-    shortName: 'María Vásquez',
+    shortName: 'Betty Vásquez',
     groupDirection: '09-02',
     role: 'teacher',
     documentId: '71234005',
@@ -802,11 +807,18 @@ const RAW_SEED_TEACHERS: Omit<UserEntity, 'allowedSubjects'>[] = [
   },
 ];
 
-export const SEED_TEACHERS: UserEntity[] = RAW_SEED_TEACHERS.map((t) => ({
-  ...t,
-  maxWeeklyHours: t.maxWeeklyHours ?? (t.academicLevel === 'primaria' ? 25 : 24),
-  allowedSubjects: (t.subjects || []).map((s) => getSubjectShortName(s)),
-}));
+export const SEED_TEACHERS: UserEntity[] = RAW_SEED_TEACHERS.map((t) => {
+  const officialEntry = resolveOfficialTeacherEntry(t.id, t.displayName);
+  const canonicalColor = officialEntry?.originalExcelHex || t.color_hex || t.color || '#007DC5';
+  return {
+    ...t,
+    color: canonicalColor,
+    color_hex: canonicalColor,
+    avatarColor: canonicalColor,
+    maxWeeklyHours: t.maxWeeklyHours ?? (t.academicLevel === 'primaria' ? 25 : 24),
+    allowedSubjects: (t.subjects || []).map((s) => getSubjectShortName(s)),
+  };
+});
 
 export const SEED_CLASSROOMS: ClassroomEntity[] = [
   // Bachillerato Classrooms
@@ -997,31 +1009,19 @@ export function generateSeedBlocks(): TimeBlockEntity[] {
 // Asignación de Paleta Curada Anti-Colisión (Selección sin Reemplazo de VILLA_FLORA_PALETTE)
 const usedSeedColors: string[] = [];
 
-// 1. Prioridad: Parche de Datos Inmediato para Alejandro, Jairo y Claudia
+// 1. Prioridad: Colores canónicos oficiales bloqueados por docente
 SEED_TEACHERS.forEach((teacher) => {
-  const normId = teacher.id.toLowerCase();
-  const normName = teacher.displayName.toLowerCase();
-
-  if (normId.includes('alejandro') || normName.includes('alejandro ram')) {
-    teacher.color = '#1E3A8A'; // Azul Oscuro
-    teacher.color_hex = '#1E3A8A';
-    teacher.avatarColor = '#1E3A8A';
-  } else if (normId.includes('jairo') || normName.includes('jairo')) {
-    teacher.color = '#EA580C'; // Naranja
-    teacher.color_hex = '#EA580C';
-    teacher.avatarColor = '#EA580C';
-  } else if (normId.includes('claudia') || normName.includes('claudia')) {
-    teacher.color = '#34D399'; // Verde Menta
-    teacher.color_hex = '#34D399';
-    teacher.avatarColor = '#34D399';
-  }
-
-  if (teacher.color_hex) {
-    usedSeedColors.push(teacher.color_hex);
+  const officialEntry = resolveOfficialTeacherEntry(teacher.id, teacher.displayName);
+  const canonicalHex = officialEntry?.originalExcelHex || teacher.color_hex || teacher.color;
+  if (canonicalHex) {
+    teacher.color = canonicalHex;
+    teacher.color_hex = canonicalHex;
+    teacher.avatarColor = canonicalHex;
+    usedSeedColors.push(canonicalHex);
   }
 });
 
-// 2. Asignación Anti-Colisión sin reemplazo para los demás docentes
+// 2. Asignación Anti-Colisión sin reemplazo para cualquier docente adicional
 SEED_TEACHERS.forEach((teacher) => {
   if (!teacher.color_hex) {
     const nextColor = getNextAvailableTeacherColor(usedSeedColors);
@@ -1037,28 +1037,47 @@ export const OFFICIAL_2026_SEED_VERSION = 'v2026_definitiva';
 export function ensureSeedDataLoaded() {
   const isCurrentVersion = localStorage.getItem('ievf_seed_version') === OFFICIAL_2026_SEED_VERSION;
 
-  if (!isCurrentVersion || !localStorage.getItem('ievf_users_v1')) {
-    let existingColorMap = new Map<string, string>();
-    try {
-      const oldRaw = localStorage.getItem('ievf_users_v1');
-      if (oldRaw) {
-        const oldUsers = JSON.parse(oldRaw);
-        if (Array.isArray(oldUsers)) {
-          oldUsers.forEach((u: any) => {
-            if (u?.id && (u.color_hex || u.color)) {
-              existingColorMap.set(u.id, u.color_hex || u.color);
-            }
-          });
-        }
+  // 1. Cargar o consolidar el mapa permanente de colores bloqueados (Ad Perpetuum)
+  const lockedColors: Record<string, string> = {};
+  try {
+    const rawLocked = localStorage.getItem('ievf_locked_teacher_colors_v1');
+    if (rawLocked) {
+      const parsedLocked = JSON.parse(rawLocked);
+      if (parsedLocked && typeof parsedLocked === 'object') {
+        Object.assign(lockedColors, parsedLocked);
       }
-    } catch {}
+    }
+  } catch {}
 
-    const mergedTeachers = SEED_TEACHERS.map((t) => {
-      const savedColor = existingColorMap.get(t.id);
-      if (savedColor) {
-        return { ...t, color: savedColor, color_hex: savedColor, avatarColor: savedColor };
+  try {
+    const oldRaw = localStorage.getItem('ievf_users_v1');
+    if (oldRaw) {
+      const oldUsers = JSON.parse(oldRaw);
+      if (Array.isArray(oldUsers)) {
+        oldUsers.forEach((u: any) => {
+          const hex = u?.color_hex || u?.color || u?.avatarColor;
+          if (u?.id && hex && !lockedColors[u.id]) {
+            lockedColors[u.id] = hex;
+          }
+        });
       }
-      return t;
+    }
+  } catch {}
+
+  SEED_TEACHERS.forEach((t) => {
+    const hex = lockedColors[t.id] || t.color_hex || t.color || '#007DC5';
+    lockedColors[t.id] = hex;
+    updateTeacherDictionaryColor(t.id, hex);
+  });
+
+  try {
+    localStorage.setItem('ievf_locked_teacher_colors_v1', JSON.stringify(lockedColors));
+  } catch {}
+
+  if (!isCurrentVersion || !localStorage.getItem('ievf_users_v1')) {
+    const mergedTeachers = SEED_TEACHERS.map((t) => {
+      const lockedHex = lockedColors[t.id] || t.color_hex || t.color || '#007DC5';
+      return { ...t, color: lockedHex, color_hex: lockedHex, avatarColor: lockedHex };
     });
     localStorage.setItem('ievf_users_v1', JSON.stringify(mergedTeachers));
   } else {
@@ -1078,15 +1097,42 @@ export function ensureSeedDataLoaded() {
               return !rem;
             })
             .map((u: any) => {
+              let nextUser = u;
               if (u?.id === 't-m-isabel' && u.shortName !== 'Mª Isabel Giraldo') {
                 changed = true;
-                return { ...u, shortName: 'Mª Isabel Giraldo' };
+                nextUser = { ...nextUser, shortName: 'Mª Isabel Giraldo' };
               }
               if (u?.id === 't-alejandra' && u.shortName !== 'Alejandra Pérez') {
                 changed = true;
-                return { ...u, shortName: 'Alejandra Pérez' };
+                nextUser = { ...nextUser, shortName: 'Alejandra Pérez' };
               }
-              return u;
+              if (u?.id === 't-betty' && u.shortName !== 'Betty Vásquez') {
+                changed = true;
+                nextUser = { ...nextUser, shortName: 'Betty Vásquez' };
+              }
+              const lockedHex =
+                (u?.id && lockedColors[u.id]) ||
+                resolveOfficialTeacherEntry(u?.id, u?.displayName)?.originalExcelHex ||
+                u?.color_hex ||
+                u?.color;
+              if (
+                lockedHex &&
+                (nextUser.color !== lockedHex ||
+                  nextUser.color_hex !== lockedHex ||
+                  nextUser.avatarColor !== lockedHex)
+              ) {
+                changed = true;
+                nextUser = {
+                  ...nextUser,
+                  color: lockedHex,
+                  color_hex: lockedHex,
+                  avatarColor: lockedHex,
+                };
+              }
+              if (u?.id && lockedHex) {
+                updateTeacherDictionaryColor(u.id, lockedHex);
+              }
+              return nextUser;
             });
           if (changed) {
             localStorage.setItem('ievf_users_v1', JSON.stringify(filtered));
@@ -1095,6 +1141,42 @@ export function ensureSeedDataLoaded() {
       }
     } catch {}
   }
+
+  // Sincronizar colores bloqueados y nombres oficiales en el snapshot público local si existe
+  try {
+    const snapRaw = localStorage.getItem('ievf_public_schedule_snapshot');
+    if (snapRaw) {
+      const snap = JSON.parse(snapRaw);
+      if (snap && Array.isArray(snap.teachers)) {
+        let snapChanged = false;
+        snap.teachers = snap.teachers
+          .filter(
+            (t: any) =>
+              t?.id !== 't-adriana-mier' &&
+              !String(t?.displayName || '').toLowerCase().includes('adriana mier') &&
+              !String(t?.displayName || '').toLowerCase().includes('adriana luc')
+          )
+          .map((t: any) => {
+            const officialEntry = resolveOfficialTeacherEntry(t?.id, t?.displayName);
+            const canonicalId = officialEntry?.id || t?.id;
+            const lockedHex =
+              (canonicalId && lockedColors[canonicalId]) ||
+              officialEntry?.originalExcelHex ||
+              t?.color ||
+              '#007DC5';
+            const fullName = getFullTeacherName(canonicalId, t?.displayName);
+            if (t?.color !== lockedHex || t?.displayName !== fullName) {
+              snapChanged = true;
+              return { ...t, id: canonicalId || t.id, displayName: fullName, color: lockedHex };
+            }
+            return t;
+          });
+        if (snapChanged) {
+          localStorage.setItem('ievf_public_schedule_snapshot', JSON.stringify(snap));
+        }
+      }
+    }
+  } catch {}
 
   if (!isCurrentVersion || !localStorage.getItem('ievf_classrooms_v1')) {
     localStorage.setItem('ievf_classrooms_v1', JSON.stringify(SEED_CLASSROOMS));
@@ -1141,14 +1223,21 @@ export function ensureSeedDataLoaded() {
     }
   }
 
-  // Asegurar que los bloques en caché reflejen los nombres abreviados actualizados (Mª Isabel Giraldo y Alejandra Pérez)
+  // Asegurar que los bloques en caché reflejen los nombres abreviados actualizados (Mª Isabel Giraldo, Alejandra Pérez y Betty Vásquez)
   try {
     for (const key of ['ievf_time_blocks_v1', 'villaFloraMatrix', 'ievf_baseline_2026_v1']) {
       const rawBlocks = localStorage.getItem(key);
-      if (rawBlocks && (rawBlocks.includes('María Giraldo') || rawBlocks.includes('"Isabel Giraldo"') || rawBlocks.includes('María Pérez'))) {
+      if (
+        rawBlocks &&
+        (rawBlocks.includes('María Giraldo') ||
+          rawBlocks.includes('"Isabel Giraldo"') ||
+          rawBlocks.includes('María Pérez') ||
+          rawBlocks.includes('María Vásquez'))
+      ) {
         const updatedRaw = rawBlocks
           .replace(/"teacherName"\s*:\s*"(María Giraldo|Isabel Giraldo)"/g, '"teacherName":"Mª Isabel Giraldo"')
-          .replace(/"teacherName"\s*:\s*"María Pérez"/g, '"teacherName":"Alejandra Pérez"');
+          .replace(/"teacherName"\s*:\s*"María Pérez"/g, '"teacherName":"Alejandra Pérez"')
+          .replace(/"teacherName"\s*:\s*"María Vásquez"/g, '"teacherName":"Betty Vásquez"');
         localStorage.setItem(key, updatedRaw);
       }
     }

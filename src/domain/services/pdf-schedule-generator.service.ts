@@ -1,6 +1,7 @@
 import { TimeBlockEntity, classifyBlockType } from '../entities/time-block.entity';
 import { calculateLuminanceContrast } from './teacher-color.service';
 import { toTitleCase, getShortTeacherName } from './teacher-visual-identity.service';
+import { getTeacherExcelIdentity, resolveOfficialTeacherEntry } from './teacher-normalization.service';
 import { getFirstAndLastNameInitials } from './html-schedule-generator.service';
 
 export interface PdfSlotConfig {
@@ -191,11 +192,27 @@ export async function downloadScheduleAsPdf(options: PdfScheduleExportOptions): 
 
   const teacherMap = new Map<string, { name: string; color: string }>();
   teachers.forEach((t) => {
-    teacherMap.set(t.id, { name: t.displayName, color: t.color || '#007DC5' });
+    const official = resolveOfficialTeacherEntry(t.id, t.displayName);
+    const identity = getTeacherExcelIdentity(t.id, t.displayName);
+    const resolvedColor = identity.color_hex || t.color || '#007DC5';
+    teacherMap.set(t.id, { name: t.displayName, color: resolvedColor });
+    if (official) {
+      if (official.id) {
+        teacherMap.set(official.id, { name: official.canonicalName, color: resolvedColor });
+      }
+      teacherMap.set(official.canonicalName.toLowerCase().trim(), {
+        name: official.canonicalName,
+        color: resolvedColor,
+      });
+      teacherMap.set(official.shortName.toLowerCase().trim(), {
+        name: official.canonicalName,
+        color: resolvedColor,
+      });
+    }
     if (t.displayName) {
       teacherMap.set(t.displayName.toLowerCase().trim(), {
         name: t.displayName,
-        color: t.color || '#007DC5',
+        color: resolvedColor,
       });
     }
   });
@@ -525,12 +542,14 @@ export async function downloadScheduleAsPdf(options: PdfScheduleExportOptions): 
       const effectiveType =
         b.block_type && b.block_type !== 'class' ? b.block_type : classifyBlockType(b.subject);
 
+      const fallbackIdentity = getTeacherExcelIdentity(b.teacherId, b.teacherName);
       const teacherInfo =
         teacherMap.get(b.teacherId) ||
         teacherMap.get((b.teacherName || '').toLowerCase().trim()) || {
           name: b.teacherName || 'Sin asignar',
-          color: '#034EA2',
+          color: fallbackIdentity.color_hex || '#034EA2',
         };
+      teacherInfo.color = fallbackIdentity.color_hex || teacherInfo.color || '#034EA2';
       const teacherName = getShortTeacherName(b.teacherId, b.teacherName || teacherInfo.name || 'Sin Asignar');
 
       if (effectiveType === 'novelty' || b.motivo_novedad) {
