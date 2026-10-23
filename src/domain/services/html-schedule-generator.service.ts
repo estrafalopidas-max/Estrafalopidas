@@ -1,6 +1,6 @@
 import { TimeBlockEntity, DayOfWeek, classifyBlockType } from '../entities/time-block.entity';
 import { calculateLuminanceContrast } from './teacher-color.service';
-import { toTitleCase } from './teacher-visual-identity.service';
+import { toTitleCase, getShortTeacherName, getFullTeacherName } from './teacher-visual-identity.service';
 import { DEFAULT_LOGO_BASE64 } from './default-logo-base64';
 import { generateWeekHeaders } from './ChronologyEngine';
 import { resolveCanonicalGradeName, normalizeTimeBlocksGrades } from './grade-normalization.service';
@@ -114,11 +114,10 @@ export interface PublicScheduleSnapshot {
 export function getFirstAndLastNameInitials(name: string | null | undefined): string {
   if (!name || !name.trim()) return '--';
 
-  const clean = name
-    .trim()
-    .replace(/^(prof\.|docente|profesor|profesora|lic\.|ing\.|coord\.)\s+/i, '');
+  const shortName = getShortTeacherName(name);
+  if (!shortName || shortName === 'Sin Asignar') return '--';
 
-  const words = clean.split(/\s+/).filter(Boolean);
+  const words = shortName.split(/\s+/).filter(Boolean);
   if (words.length === 0) return '--';
 
   if (words.length === 1) {
@@ -128,16 +127,14 @@ export function getFirstAndLastNameInitials(name: string | null | undefined): st
       : single[0].toUpperCase();
   }
 
-  const firstInitial = words[0][0];
-  const lastInitial = words[words.length - 1][0];
-  return (firstInitial + lastInitial).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
 }
 
 /**
  * Genera el documento HTML autónomo con las casillas IDÉNTICAS al panel administrativo:
  * - Proporción 60/40 estricta.
  * - Bloque superior (60%): fondo gris claro (#f9fafb), materia centrada en negrita y aula en fuente monospace.
- * - Bloque inferior (40%): color oficial del docente, avatar izquierdo con fondo translúcido e iniciales, y nombre en TitleCase con contraste WCAG ITU-R BT.601.
+ * - Bloque inferior (40%): color oficial del docente, avatar izquierdo con fondo translúcido e iniciales, y nombre corto (Nombre Apellido) en la casilla.
  * - Soporte para Novedades (fondo ámbar con badge) y Sin asignación académica (borde punteado).
  */
 export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOptions): string {
@@ -188,6 +185,9 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
     if (t.displayName) {
       teacherMap.set(t.displayName.toLowerCase().trim(), { name, color });
     }
+    if (t.shortName) {
+      teacherMap.set(t.shortName.toLowerCase().trim(), { name, color });
+    }
   });
 
   // Helper to check if a block represents an actual assigned class or institutional novelty
@@ -222,9 +222,10 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       color: '#007DC5',
     };
 
-    const teacherName = toTitleCase(b.teacherName || teacherInfo.name || 'Sin Asignar');
+    const teacherShortName = getShortTeacherName(b.teacherId, b.teacherName || teacherInfo.name || 'Sin Asignar');
+    const teacherFullName = getFullTeacherName(b.teacherId, teacherInfo.name || b.teacherName || 'Sin Asignar');
     const colorHex = teacherInfo.color || '#034EA2';
-    const initials = getFirstAndLastNameInitials(teacherName);
+    const initials = getFirstAndLastNameInitials(teacherShortName);
     const contrast = calculateLuminanceContrast(colorHex) === 'text-white' ? '#ffffff' : '#111827';
     
     const isNovelty =
@@ -266,7 +267,8 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       shift: resolveBlockShift(b),
       grade: resolveCanonicalGradeName(b),
       subject: b.subject,
-      teacher: teacherName,
+      teacher: teacherShortName,
+      teacherFullName,
       teacherColor: colorHex,
       teacherInitials: initials,
       teacherTextColor: contrast,
@@ -282,7 +284,9 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       noveltyReason: noveltyReason || null,
       motivo_novedad: b.motivo_novedad || noveltyReason || null,
       status: b.status || 'regular',
-      replacement: b.replacementTeacherName ? toTitleCase(b.replacementTeacherName) : null,
+      replacement: b.replacementTeacherName
+        ? getShortTeacherName(b.replacementTeacherId, b.replacementTeacherName)
+        : null,
       notes: b.notes || null,
       startTime: b.startTime,
       endTime: b.endTime,
@@ -293,7 +297,8 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
   const teachersSerialized = JSON.stringify(
     teachers.map((t) => ({
       id: t.id,
-      name: toTitleCase(t.displayName || ''),
+      name: getShortTeacherName(t.id, t.displayName || ''),
+      fullName: getFullTeacherName(t.id, t.displayName || ''),
       color: t.color_hex || t.color || '#007DC5',
     }))
   ).replace(/</g, '\\u003c');
@@ -845,54 +850,81 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       -webkit-box-orient: vertical;
     }
 
-    /* Casilla Novedad Institucional (Bloque Único) */
+    /* Casilla Novedad Institucional (Bloque Único 2/3 Superiores) */
     .admin-card-novelty {
       height: 100%;
       min-height: 84px;
-      padding: 6px 5px;
+      padding: 0;
       border-radius: 8px;
-      border: 2px solid #f59e0b;
-      background-color: #fffbeb;
+      border: 1.5px solid #f59e0b;
+      background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(245, 158, 11, 0.08);
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
+      justify-content: flex-start;
+      align-items: stretch;
       text-align: center;
       overflow: hidden;
     }
-    .novelty-badge-header {
-      font-size: 8px;
-      font-weight: 900;
-      color: #92400e;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      line-height: 1.1;
+    .novelty-upper-zone {
+      width: 100%;
+      min-height: 67%;
+      height: auto;
+      padding: 6px 5px 4px 5px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 3px;
     }
+    .novelty-icon-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 21px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
     .novelty-reason {
+      width: 100%;
       font-size: 9.5px;
       font-weight: 900;
       color: #451a03;
       text-transform: uppercase;
-      line-height: 1.2;
-      padding: 0 2px;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
       word-break: break-word;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      flex-wrap: wrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .novelty-sub-label {
+      font-size: 8px;
+      font-weight: 600;
+      color: #92400e;
+      line-height: 1;
+      letter-spacing: -0.01em;
+      flex-shrink: 0;
+      margin-top: 1px;
     }
     .colombia-flag-svg {
+      display: block;
       width: 15px;
-      height: 11px;
+      height: 10px;
+      margin-top: 2px;
       border-radius: 2px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+      border: 1px solid rgba(69, 26, 3, 0.2);
+      flex-shrink: 0;
+    }
+    .novelty-category-svg {
+      display: block;
+      width: 13px;
+      height: 13px;
+      margin-top: 1px;
+      color: #92400e;
       flex-shrink: 0;
     }
 
@@ -1277,10 +1309,10 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
     const teacherSelect = document.getElementById('teacherSelect');
 
     ALL_TEACHERS.forEach(t => {
-      if (!t.name) return;
+      if (!t.name && !t.fullName) return;
       const opt = document.createElement('option');
-      opt.value = t.name;
-      opt.textContent = t.name;
+      opt.value = t.name || t.fullName;
+      opt.textContent = t.fullName || t.name;
       teacherSelect.appendChild(opt);
     });
 
@@ -1374,6 +1406,7 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       const haystack = [
         b.subject || '',
         b.teacher || '',
+        b.teacherFullName || '',
         b.replacement || '',
         b.classroom || '',
         b.grade || '',
@@ -1404,7 +1437,7 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
         if (b.shift !== currentShift) return false;
         if (b.day !== currentDay) return false;
         if (selectedGrade !== 'ALL' && b.grade !== selectedGrade) return false;
-        if (selectedTeacher !== 'ALL' && b.teacher !== selectedTeacher) return false;
+        if (selectedTeacher !== 'ALL' && b.teacher !== selectedTeacher && b.teacherFullName !== selectedTeacher) return false;
         if (!matchesSearchTokens(b, searchTokens)) return false;
         return true;
       });
@@ -1500,13 +1533,30 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
               const rawReason = b.noveltyReason || b.motivo_novedad || (b.notes ? b.notes.replace(/^novedad:\s*/i, '').replace(/^evento institucional programado:\s*/i, '').trim() : '') || (b.subject && /^(NOVEDAD|ACTO\s|ACTIVIDAD\s|REUNI[OÓ]N\s|JORNADA\s|DIRECCI[OÓ]N\s)/i.test(b.subject.trim()) ? b.subject : 'NOVEDAD DOCENTE');
               const reasonUpper = String(rawReason).replace(/🇨🇴/g, '').trim().toUpperCase();
               const isActoCivico = reasonUpper.includes('ACTO CÍVICO') || reasonUpper.includes('ACTO CIVICO');
-              const flagSvg = isActoCivico
-                ? '<svg class="colombia-flag-svg" viewBox="0 0 24 16" aria-label="Bandera de Colombia"><rect width="24" height="8" y="0" fill="#FCD116"/><rect width="24" height="4" y="8" fill="#003893"/><rect width="24" height="4" y="12" fill="#CE1126"/></svg>'
-                : '';
+              let noveltyBadgeSvg = '';
+              if (isActoCivico) {
+                noveltyBadgeSvg = '<svg class="colombia-flag-svg" viewBox="0 0 24 16" aria-label="Bandera de Colombia"><rect width="24" height="8" y="0" fill="#FCD116"/><rect width="24" height="4" y="8" fill="#003893"/><rect width="24" height="4" y="12" fill="#CE1126"/></svg>';
+              } else if (reasonUpper.includes('JORNADA PEDAG') || reasonUpper.includes('CAPACITACI') || reasonUpper.includes('TALLER')) {
+                noveltyBadgeSvg = '<svg class="novelty-category-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Jornada pedagógica"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+              } else if (reasonUpper.includes('REUNI') || reasonUpper.includes('ÁREA') || reasonUpper.includes('AREA') || reasonUpper.includes('CONSEJO')) {
+                noveltyBadgeSvg = '<svg class="novelty-category-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Reunión de área"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+              } else if (reasonUpper.includes('DIRECCI') || reasonUpper.includes('GRUPO') || reasonUpper.includes('CONVIVENCIA')) {
+                noveltyBadgeSvg = '<svg class="novelty-category-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Dirección de grupo"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>';
+              } else if (reasonUpper.includes('SINDICAL') || reasonUpper.includes('ASAMBLEA') || reasonUpper.includes('PARO')) {
+                noveltyBadgeSvg = '<svg class="novelty-category-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Actividad sindical"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>';
+              } else if (reasonUpper.includes('DOCENTE') || reasonUpper.includes('PERMISO') || reasonUpper.includes('INCAPACIDAD') || reasonUpper.includes('CALAMIDAD')) {
+                noveltyBadgeSvg = '<svg class="novelty-category-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Novedad docente"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>';
+              } else {
+                noveltyBadgeSvg = '<svg class="novelty-category-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Evento institucional"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>';
+              }
 
-              html += '<div class="admin-card-novelty" title="NOVEDAD INSTITUCIONAL: ' + reasonUpper.replace(/"/g, '&quot;') + '">';
-              html += '<div class="novelty-badge-header">⚠️ NOVEDAD INSTITUCIONAL</div>';
-              html += '<div class="novelty-reason">' + flagSvg + '<span>' + reasonUpper + '</span></div>';
+              html += '<div class="admin-card-novelty" title="Novedad institucional: ' + reasonUpper.replace(/"/g, '&quot;') + '">';
+              html += '<div class="novelty-upper-zone">';
+              html += '<div class="novelty-icon-row"><span>⚠️</span></div>';
+              html += '<div class="novelty-sub-label">Novedad institucional</div>';
+              html += '<div class="novelty-reason">' + reasonUpper + '</div>';
+              html += noveltyBadgeSvg;
+              html += '</div>';
               html += '</div>';
             } else {
               const isAbsent = b.status === 'absent';
@@ -1526,8 +1576,8 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
               }
               html += '</div>';
 
-              // 40% Bottom Block
-              html += '<div class="admin-card-bottom" style="background-color: ' + (b.teacherColor || '#034EA2') + ';" title="' + (b.teacher || '') + '">';
+              // 40% Bottom Block (Short Name in cell, Full Name in tooltip)
+              html += '<div class="admin-card-bottom" style="background-color: ' + (b.teacherColor || '#034EA2') + ';" title="' + (b.teacherFullName || b.teacher || '') + '">';
               html += '<div class="admin-card-initials">' + (b.teacherInitials || '--') + '</div>';
               html += '<span class="admin-card-teacher-name" style="color: ' + (b.teacherTextColor || '#ffffff') + ';">' + (b.teacher || 'Docente') + '</span>';
               html += '</div>';
@@ -1736,33 +1786,42 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
                 ctx.lineWidth = 1.5;
                 ctx.strokeRect(cx, cy, cw, ch);
                 ctx.lineWidth = 1;
-                ctx.fillStyle = '#92400e';
-                ctx.font = '800 8px sans-serif';
+                const iconY = cy + 14;
+                const subY = cy + 25;
+                const descY = cy + 38;
                 ctx.textAlign = 'center';
-                ctx.fillText('⚠️ NOVEDAD INSTITUCIONAL', cx + cw / 2, cy + ch / 2 - 10);
+                ctx.font = '700 18px sans-serif';
+                ctx.fillStyle = '#d97706';
+                ctx.fillText('⚠️', cx + cw / 2, iconY);
+                ctx.fillStyle = '#92400e';
+                ctx.font = '600 7.5px sans-serif';
+                ctx.fillText('Novedad institucional', cx + cw / 2, subY);
                 ctx.fillStyle = '#451a03';
                 ctx.font = '900 9.5px sans-serif';
-                const displayReason = reasonUpper.slice(0, 22);
+                ctx.fillText(reasonUpper.slice(0, 22), cx + cw / 2, descY);
                 if (isActoCivico) {
                   const flagW = 14;
-                  const flagH = 10;
-                  const textW = ctx.measureText(displayReason).width;
-                  const totalW = flagW + 5 + textW;
-                  const startX = cx + (cw - totalW) / 2;
-                  const flagY = cy + ch / 2 + 3;
+                  const flagH = 9;
+                  const flagX = cx + (cw - flagW) / 2;
+                  const flagY = descY + 6;
                   ctx.fillStyle = '#FCD116';
-                  ctx.fillRect(startX, flagY, flagW, flagH * 0.5);
+                  ctx.fillRect(flagX, flagY, flagW, flagH * 0.5);
                   ctx.fillStyle = '#003893';
-                  ctx.fillRect(startX, flagY + flagH * 0.5, flagW, flagH * 0.25);
+                  ctx.fillRect(flagX, flagY + flagH * 0.5, flagW, flagH * 0.25);
                   ctx.fillStyle = '#CE1126';
-                  ctx.fillRect(startX, flagY + flagH * 0.75, flagW, flagH * 0.25);
-                  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-                  ctx.strokeRect(startX, flagY, flagW, flagH);
-                  ctx.fillStyle = '#451a03';
-                  ctx.textAlign = 'left';
-                  ctx.fillText(displayReason, startX + flagW + 5, cy + ch / 2 + 8);
+                  ctx.fillRect(flagX, flagY + flagH * 0.75, flagW, flagH * 0.25);
+                  ctx.strokeStyle = 'rgba(69,26,3,0.2)';
+                  ctx.strokeRect(flagX, flagY, flagW, flagH);
                 } else {
-                  ctx.fillText(displayReason, cx + cw / 2, cy + ch / 2 + 8);
+                  let catSymbol = '📅';
+                  if (reasonUpper.includes('JORNADA PEDAG') || reasonUpper.includes('CAPACITACI') || reasonUpper.includes('TALLER')) catSymbol = '📖';
+                  else if (reasonUpper.includes('REUNI') || reasonUpper.includes('ÁREA') || reasonUpper.includes('AREA') || reasonUpper.includes('CONSEJO')) catSymbol = '👥';
+                  else if (reasonUpper.includes('DIRECCI') || reasonUpper.includes('GRUPO') || reasonUpper.includes('CONVIVENCIA')) catSymbol = '🛡️';
+                  else if (reasonUpper.includes('SINDICAL') || reasonUpper.includes('ASAMBLEA') || reasonUpper.includes('PARO')) catSymbol = '📢';
+                  else if (reasonUpper.includes('DOCENTE') || reasonUpper.includes('PERMISO') || reasonUpper.includes('INCAPACIDAD') || reasonUpper.includes('CALAMIDAD')) catSymbol = '👤';
+                  ctx.font = '700 10px sans-serif';
+                  ctx.fillStyle = '#92400e';
+                  ctx.fillText(catSymbol, cx + cw / 2, descY + 14);
                 }
                 return;
               }

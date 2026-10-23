@@ -18,6 +18,7 @@ interface AgentChatRequest {
       subjects?: string[];
       weeklyAssignedHours?: number;
       maxWeeklyHours?: number;
+      entrySchedule?: string;
     }[];
     daySchedulesSummary?: string;
     uncoveredSlotsSummary?: string;
@@ -253,6 +254,7 @@ async function startServer() {
         'Reglas normativas e institucionales clave:',
         '- Tope oficial de asignación académica semanal por docente: 24 horas semanales.',
         '- Bachillerato tiene 6 horas base (06:10 a 12:10 con descanso 08:50-09:25) y bloques de Media Técnica (7ª a 11ª hora para 10° y 11°).',
+        '- Horario especial de ingreso: Gleysher Omar Mosquera Perea y Alexander Uribe Montalvo ingresan al colegio a las 9:25 a.m., excepto Alexander Uribe el lunes (ingresa 6:10 a.m.) y Gleysher Mosquera el jueves (ingresa 6:10 a.m.).',
         '- Cuando se activa "Atención a padres" en Bachillerato (06:10-07:00), las clases inician a las 07:00 desplazando 1ª a 5ª hora hacia abajo.',
         '- Primaria y Transición 2 operan en la jornada tarde (5 horas base). Transición 1 opera aislada en la mañana.',
         `Contexto en vivo de la parrilla actual (${ctx.academicPeriod || 'Periodo actual'}, Semana ${ctx.academicWeek || ''}, Jornada activa: ${shiftLabel}):`,
@@ -260,7 +262,7 @@ async function startServer() {
           ? `Docentes y carga semanal:\n${ctx.teachersSummary
               .map(
                 (t) =>
-                  `- ${t.name} (${t.level || 'general'}): ${t.weeklyAssignedHours ?? 0}/${t.maxWeeklyHours ?? 24}h | Áreas: ${(t.subjects || []).join(', ') || 'General'}`
+                  `- ${t.name} (${t.level || 'general'}): ${t.weeklyAssignedHours ?? 0}/${t.maxWeeklyHours ?? 24}h | Áreas: ${(t.subjects || []).join(', ') || 'General'}${t.entrySchedule ? ` | ${t.entrySchedule}` : ''}`
               )
               .join('\n')}`
           : '',

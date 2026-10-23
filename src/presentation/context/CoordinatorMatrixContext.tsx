@@ -3,6 +3,7 @@ import { ShiftType } from '../../domain/entities/grade.entity';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { getTeacherVisualIdentity } from '../../domain/services/teacher-visual-identity.service';
 import { FirestoreUserRepository } from '../../infrastructure/repositories/firestore-user.repository';
+import { ensureSeedDataLoaded } from '../../infrastructure/seed/initial-seed';
 import { ALL_OFFICIAL_MATERIAS } from '../../domain/constants/subjects';
 import { generateWeekHeaders, getCurrentWeekText, DynamicDayHeader, getOrdinalSuffix } from '../../domain/services/ChronologyEngine';
 
@@ -207,6 +208,7 @@ export const CoordinatorMatrixProvider: React.FC<{ children: React.ReactNode }> 
   const onBatchDeleteRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    ensureSeedDataLoaded();
     const repo = new FirestoreUserRepository();
     repo.getTeachers().then((list) => {
       if (list && list.length > 0) {
@@ -298,7 +300,11 @@ export const CoordinatorMatrixProvider: React.FC<{ children: React.ReactNode }> 
       }
       if (teacherName) {
         const clean = teacherName.trim().toLowerCase();
-        const foundByName = teachers.find((t) => t.displayName?.trim().toLowerCase() === clean);
+        const foundByName = teachers.find(
+          (t) =>
+            t.displayName?.trim().toLowerCase() === clean ||
+            t.shortName?.trim().toLowerCase() === clean
+        );
         if (foundByName?.color_hex) return foundByName.color_hex;
         if (foundByName?.color) return foundByName.color;
       }

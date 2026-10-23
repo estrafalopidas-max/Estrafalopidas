@@ -5,6 +5,7 @@ import { FirestoreUserRepository } from '../../../infrastructure/repositories/fi
 import { useCoordinatorMatrix } from '../../context/CoordinatorMatrixContext';
 import { ALL_OFFICIAL_MATERIAS } from '../../../domain/constants/subjects';
 import { VILLA_FLORA_PALETTE } from '../../../domain/services/teacher-color.service';
+import { getFullTeacherName, getShortTeacherName } from '../../../domain/services/teacher-visual-identity.service';
 
 interface TeacherFormModalProps {
   isOpen: boolean;
@@ -36,7 +37,7 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
       setDocumentId(teacher.documentId || '');
       setEmail(teacher.email || '');
       setMaxWeeklyHours(
-        !teacher.maxWeeklyHours || teacher.maxWeeklyHours === 22 || teacher.maxWeeklyHours === 25
+        !teacher.maxWeeklyHours || teacher.maxWeeklyHours === 22
           ? 24
           : teacher.maxWeeklyHours
       );
@@ -67,11 +68,15 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
     try {
       const repo = new FirestoreUserRepository();
       const now = new Date().toISOString();
+      const cleanFull = displayName.trim();
       const updatedTeacher: UserEntity = {
+        ...teacher,
         id: teacher?.id || `teacher-${Date.now()}`,
-        displayName: displayName.trim(),
+        displayName: cleanFull,
+        shortName: teacher?.shortName || getShortTeacherName(teacher?.id, cleanFull),
+        groupDirection: teacher?.groupDirection,
         documentId: documentId.trim(),
-        email: email.trim() || `${displayName.toLowerCase().replace(/\s+/g, '.')}@villaflora.edu.co`,
+        email: email.trim() || `${cleanFull.toLowerCase().replace(/\s+/g, '.')}@villaflora.edu.co`,
         role: 'teacher',
         maxWeeklyHours: Number(maxWeeklyHours) || 24,
         color_hex: colorHex,
@@ -140,7 +145,7 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
                 <option value="">-- Nuevo Docente --</option>
                 {teachers.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.displayName} ({!t.maxWeeklyHours || t.maxWeeklyHours === 22 || t.maxWeeklyHours === 25 ? 24 : t.maxWeeklyHours}h)
+                    {getFullTeacherName(t.id, t.displayName)}{t.groupDirection ? ` — Dir. ${t.groupDirection}` : ''} ({!t.maxWeeklyHours || t.maxWeeklyHours === 22 ? 24 : t.maxWeeklyHours}h)
                   </option>
                 ))}
               </select>

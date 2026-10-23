@@ -115,6 +115,25 @@ test('generateStandaloneScheduleHtml formats novelty blocks as unified NOVEDAD I
       status: 'regular',
       updatedAt: new Date().toISOString(),
     },
+    {
+      id: 'tb-nov-2',
+      block_type: 'novelty',
+      dayOfWeek: 'lunes',
+      period: 2,
+      startTime: '07:05',
+      endTime: '08:00',
+      shift: 'morning',
+      gradeId: 'grade-601',
+      gradeName: '6°1',
+      subject: 'Matemáticas',
+      teacherId: 'teacher-1',
+      teacherName: 'Alejandro Giraldo',
+      classroomId: 'c-303',
+      classroomName: 'Aula 303',
+      motivo_novedad: 'Jornada pedagógica',
+      status: 'regular',
+      updatedAt: new Date().toISOString(),
+    },
   ];
 
   const html = generateStandaloneScheduleHtml({
@@ -124,7 +143,42 @@ test('generateStandaloneScheduleHtml formats novelty blocks as unified NOVEDAD I
     academicWeek: 9,
   });
 
-  assert.ok(html.includes('⚠️ NOVEDAD INSTITUCIONAL'), 'Must include NOVEDAD INSTITUCIONAL header with warning icon');
+  assert.ok(html.includes('novelty-upper-zone'), 'Must render upper 2/3 container for novelty');
   assert.ok(html.includes('ACTO CÍVICO IZADA DE BANDERA'), 'Must normalize novelty description to uppercase');
+  assert.ok(html.includes('JORNADA PEDAGÓGICA'), 'Must normalize other novelty descriptions to uppercase');
+  assert.ok(html.includes('Novedad institucional'), 'Must include Novedad institucional sub-label');
   assert.ok(html.includes('Bandera de Colombia'), 'Must include Colombian flag SVG for ACTO CÍVICO');
+  assert.ok(html.includes('aria-label="Jornada pedagógica"'), 'Must include representative SVG icon for other novelty types');
+});
+
+test('Official 34 teachers roster resolves shortName for cells, fullName for directories/tooltips, and arrival schedules', async () => {
+  const { OFFICIAL_TEACHERS_ROSTER, isTeacherPresentAtSlot } = await import('./teacher-normalization.service.ts');
+  const { getShortTeacherName, getFullTeacherName } = await import('./teacher-visual-identity.service.ts');
+
+  assert.equal(OFFICIAL_TEACHERS_ROSTER.length, 34, 'Must register all 34 official teachers (32 PDF + Sara Casafus + Paola)');
+  assert.equal(getShortTeacherName('t-trans-1', 'Yessica Bolívar Bolívar'), 'Yessica Bolívar');
+  assert.equal(getFullTeacherName('t-trans-1', 'Yessica Bolívar'), 'Yessica Bolívar Bolívar');
+  assert.equal(getShortTeacherName('t-101', 'Mariluz Viviana Martínez Cortés'), 'Mariluz Martínez');
+  assert.equal(getFullTeacherName('t-101', 'Mariluz Martínez'), 'Mariluz Viviana Martínez Cortés');
+  assert.equal(getShortTeacherName('t-alejandro', 'Alejandro Ramírez Cañas'), 'Alejandro Ramírez');
+  assert.equal(getFullTeacherName('t-alejandro', 'Alejandro Ramírez'), 'Alejandro Ramírez Cañas');
+  assert.equal(getShortTeacherName('t-sara', 'Sara Casafus'), 'Sara Casafus');
+  assert.equal(getShortTeacherName('t-paola', 'Paola'), 'Paola');
+  assert.equal(getShortTeacherName('t-lorena-l', 'Lizhet Lorena Lopera Mazo'), 'Lorena Lopera');
+  assert.equal(getFullTeacherName('t-lorena-l', 'Lorena Lopera'), 'Lizhet Lorena Lopera Mazo');
+  assert.equal(getShortTeacherName('JAVIER'), 'Alexander Uribe');
+  assert.equal(getShortTeacherName('OMAR'), 'Omar Mosquera');
+  assert.equal(getFullTeacherName('t-omar', 'Omar Mosquera'), 'Gleysher Omar Mosquera Perea');
+
+  // Arrival schedule checks for Alexander Uribe (9:25 AM except Monday 6:10 AM)
+  assert.equal(isTeacherPresentAtSlot('t-alexander', 'Alexander Uribe', 'lunes', 1, 'morning').isPresent, true);
+  assert.equal(isTeacherPresentAtSlot('t-alexander', 'Alexander Uribe', 'martes', 1, 'morning').isPresent, false);
+  assert.equal(isTeacherPresentAtSlot('t-alexander', 'Alexander Uribe', 'jueves', 3, 'morning').isPresent, false);
+  assert.equal(isTeacherPresentAtSlot('t-alexander', 'Alexander Uribe', 'jueves', 4, 'morning').isPresent, true);
+
+  // Arrival schedule checks for Omar Mosquera (9:25 AM except Thursday 6:10 AM)
+  assert.equal(isTeacherPresentAtSlot('t-omar', 'Omar Mosquera', 'jueves', 1, 'morning').isPresent, true);
+  assert.equal(isTeacherPresentAtSlot('t-omar', 'Omar Mosquera', 'lunes', 1, 'morning').isPresent, false);
+  assert.equal(isTeacherPresentAtSlot('t-omar', 'Omar Mosquera', 'miercoles', 3, 'morning').isPresent, false);
+  assert.equal(isTeacherPresentAtSlot('t-omar', 'Omar Mosquera', 'lunes', 4, 'morning').isPresent, true);
 });

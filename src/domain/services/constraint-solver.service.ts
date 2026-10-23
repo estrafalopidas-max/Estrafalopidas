@@ -8,6 +8,7 @@
 
 import { TimeBlockEntity, DayOfWeek } from '../entities/time-block.entity';
 import { ShiftType } from '../entities/grade.entity';
+import { isTeacherPresentAtSlot } from './teacher-normalization.service';
 
 export interface CollisionValidationResult {
   isValid: boolean;
@@ -66,8 +67,23 @@ export class ConstraintSolverService {
       }
     }
 
-    // 2. REGLA CRÍTICA 2: Colisión de Docente (Double-booking)
+    // 2. REGLA CRÍTICA 2: Colisión de Docente (Double-booking y Horario de Entrada)
     if (candidate.teacherId) {
+      const presence = isTeacherPresentAtSlot(
+        candidate.teacherId,
+        candidate.teacherName,
+        candidate.dayOfWeek,
+        candidate.period,
+        candidate.shift
+      );
+      if (!presence.isPresent) {
+        return {
+          isValid: false,
+          conflictType: 'teacher',
+          message: `¡Restricción de Horario de Entrada! El docente "${candidate.teacherName || candidate.teacherId}" ingresa al colegio a las ${presence.entryTime} a.m. el día ${candidate.dayOfWeek} (${presence.label}).`,
+        };
+      }
+
       const teacherCollision = concurrentBlocks.find(
         (b) =>
           (b.teacherId === candidate.teacherId && b.status !== 'absent') ||
@@ -88,7 +104,7 @@ export class ConstraintSolverService {
   }
 
   /**
-   * Obtiene la lista de docentes disponibles (sin colisión) para un periodo específico
+   * Obtiene la lista de docentes disponibles (sin colisión y presentes en el colegio) para un periodo específico
    */
   public static getAvailableTeachers<T extends { id: string; name: string }>(
     allTeachers: T[],
@@ -113,7 +129,11 @@ export class ConstraintSolverService {
         })
     );
 
-    return allTeachers.filter((t) => !busyTeacherIds.has(t.id));
+    return allTeachers.filter(
+      (t) =>
+        !busyTeacherIds.has(t.id) &&
+        isTeacherPresentAtSlot(t.id, t.name, slot.dayOfWeek, slot.period, slot.shift).isPresent
+    );
   }
 
   /**

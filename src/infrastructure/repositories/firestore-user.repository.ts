@@ -11,7 +11,7 @@ export class FirestoreUserRepository implements IUserRepository {
     return parsed.map((u) => ({
       ...u,
       maxWeeklyHours:
-        !u.maxWeeklyHours || u.maxWeeklyHours === 22 || u.maxWeeklyHours === 25
+        !u.maxWeeklyHours || u.maxWeeklyHours === 22
           ? 24
           : u.maxWeeklyHours,
     }));
@@ -90,7 +90,7 @@ export class FirestoreUserRepository implements IUserRepository {
     return parsed.map((u) => ({
       ...u,
       maxWeeklyHours:
-        !u.maxWeeklyHours || u.maxWeeklyHours === 22 || u.maxWeeklyHours === 25
+        !u.maxWeeklyHours || u.maxWeeklyHours === 22
           ? 24
           : u.maxWeeklyHours,
     }));

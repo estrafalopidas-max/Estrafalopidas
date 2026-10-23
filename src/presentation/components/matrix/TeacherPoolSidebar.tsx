@@ -5,7 +5,7 @@ import { TimeBlockEntity } from '../../../domain/entities/time-block.entity';
 import { useTeacherLoad } from '../../hooks/useTeacherLoad';
 import { getFirstAndLastNameInitials, getContrastTextColor } from './MatrixSlotCard';
 import { setGlobalActiveDraggedBlock } from './MatrixCell';
-import { toTitleCase } from '../../../domain/services/teacher-visual-identity.service';
+import { getFullTeacherName, getShortTeacherName } from '../../../domain/services/teacher-visual-identity.service';
 import { useCoordinatorMatrix } from '../../context/CoordinatorMatrixContext';
 
 export interface TeacherPoolSidebarProps {
@@ -56,6 +56,8 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
       if (tokens.length === 0) return true;
       const haystack = [
         t.displayName || '',
+        t.shortName || '',
+        t.groupDirection || '',
         t.documentId || '',
         ...(t.subjects || []),
         ...(t.specialty || []),
@@ -183,9 +185,11 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {filteredTeachers.map((teacher) => {
+            const fullName = getFullTeacherName(teacher.id, teacher.displayName);
+            const shortName = teacher.shortName || getShortTeacherName(teacher.id, teacher.displayName);
             const color = getTeacherColor(teacher.id, teacher.displayName);
             const contrast = getContrastTextColor(color);
-            const initials = getFirstAndLastNameInitials(teacher.displayName);
+            const initials = getFirstAndLastNameInitials(shortName);
             const load = getTeacherLoad(teacher.id, teacher.displayName);
             const isAlreadyAssigned = load.currentAssignedHours >= load.maxWeeklyHours;
 
@@ -213,7 +217,7 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
                     isTeacherCard: true,
                     id: `teacher-${teacher.id}`,
                     teacherId: teacher.id,
-                    teacherName: teacher.displayName,
+                    teacherName: shortName,
                     subject: primarySubject,
                     sourceId: 'teacher-pool',
                   });
@@ -232,7 +236,7 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
                     gradeName: '',
                     subject: primarySubject,
                     teacherId: teacher.id,
-                    teacherName: teacher.displayName,
+                    teacherName: shortName,
                     classroomId: '',
                     classroomName: '',
                     status: 'regular',
@@ -244,8 +248,8 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
                 }}
                 title={
                   isAlreadyAssigned
-                    ? `${toTitleCase(teacher.displayName)} — Ya asignado (${load.currentAssignedHours}/${load.maxWeeklyHours}h completadas)`
-                    : `Disponible (${load.remainingHours}h libres) • Arrastrar a una casilla o clic para editar a ${toTitleCase(teacher.displayName)}`
+                    ? `${fullName} — Ya asignado (${load.currentAssignedHours}/${load.maxWeeklyHours}h completadas)`
+                    : `Disponible (${load.remainingHours}h libres)${teacher.entrySchedule?.label ? ` • ${teacher.entrySchedule.label}` : ''} • Arrastrar a una casilla o clic para editar a ${fullName}`
                 }
                 className={`group p-2.5 rounded-xl border flex items-center justify-between gap-2 transition select-none ${
                   isAlreadyAssigned
@@ -276,7 +280,7 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
                           isAlreadyAssigned ? 'text-slate-400' : 'text-slate-900'
                         }`}
                       >
-                        {toTitleCase(teacher.displayName)}
+                        {fullName}
                       </p>
                       {!isAlreadyAssigned && (
                         <span
@@ -294,6 +298,11 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
                         ? 'Ya asignado • Cupo completo'
                         : (teacher.subjects || []).join(', ') || 'Docente Institucional'}
                     </p>
+                    {teacher.entrySchedule?.label && (
+                      <p className="text-[9.5px] font-medium text-amber-700 truncate">
+                        {teacher.entrySchedule.label}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -305,7 +314,7 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
                         openTeacherModal(teacher, false);
                       }}
                       className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-amber-100 transition cursor-pointer"
-                      title={`Editar a ${toTitleCase(teacher.displayName)}`}
+                      title={`Editar a ${fullName}`}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>

@@ -4,7 +4,7 @@ import { useCoordinatorMatrix } from '../../context/CoordinatorMatrixContext';
 import { useTeacherLoad } from '../../hooks/useTeacherLoad';
 import { ensureSeedDataLoaded } from '../../../infrastructure/seed/initial-seed';
 import { getFirstAndLastNameInitials, getContrastTextColor } from '../../components/matrix/MatrixSlotCard';
-import { toTitleCase } from '../../../domain/services/teacher-visual-identity.service';
+import { getFullTeacherName, getShortTeacherName } from '../../../domain/services/teacher-visual-identity.service';
 
 const normalizeText = (text: string): string =>
   (text || '')
@@ -41,6 +41,8 @@ export const CoordinatorAssignmentsPage: React.FC = () => {
     return teachers.filter((teacher) => {
       const haystack = [
         teacher.displayName || '',
+        teacher.shortName || '',
+        teacher.groupDirection || '',
         teacher.documentId || '',
         ...(teacher.subjects || []),
         ...(teacher.specialty || []),
@@ -149,9 +151,11 @@ export const CoordinatorAssignmentsPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTeachers.map((teacher) => {
+            const fullName = getFullTeacherName(teacher.id, teacher.displayName);
+            const shortName = teacher.shortName || getShortTeacherName(teacher.id, teacher.displayName);
             const color = getTeacherColor(teacher.id, teacher.displayName);
             const contrast = getContrastTextColor(color);
-            const initials = getFirstAndLastNameInitials(teacher.displayName);
+            const initials = getFirstAndLastNameInitials(shortName);
             const load = getTeacherLoad(teacher.id, teacher.displayName);
             const pct = Math.min(100, Math.round((load.currentAssignedHours / load.maxWeeklyHours) * 100));
 
@@ -159,7 +163,7 @@ export const CoordinatorAssignmentsPage: React.FC = () => {
               <div
                 key={teacher.id}
                 onClick={() => openTeacherModal(teacher)}
-                title={`Clic para editar a ${toTitleCase(teacher.displayName)}`}
+                title={`Clic para editar a ${fullName}`}
                 className="group bg-white rounded-2xl border border-slate-200 p-4 hover:border-blue-400 transition shadow-2xs cursor-pointer space-y-3"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -175,12 +179,14 @@ export const CoordinatorAssignmentsPage: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-sm font-bold text-slate-900 truncate flex items-center gap-1.5">
-                        <span className="truncate">{toTitleCase(teacher.displayName)}</span>
+                        <span className="truncate">{fullName}</span>
                         <Pencil className="w-3.5 h-3.5 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                       </h3>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        Doc: {teacher.documentId || 'N/A'}
-                      </p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
+                        <span>{teacher.groupDirection ? `Dir. Grupo: ${teacher.groupDirection}` : 'Sin dirección de grupo'}</span>
+                        <span>•</span>
+                        <span>Celdas: {shortName}</span>
+                      </div>
                     </div>
                   </div>
                   <span
@@ -209,6 +215,13 @@ export const CoordinatorAssignmentsPage: React.FC = () => {
                     {(teacher.subjects || []).join(' • ') || 'Asignación General'}
                   </span>
                 </div>
+
+                {teacher.entrySchedule?.label && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg">
+                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span className="truncate">{teacher.entrySchedule.label}</span>
+                  </div>
+                )}
               </div>
             );
           })}

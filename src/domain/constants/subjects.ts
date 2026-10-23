@@ -72,6 +72,13 @@ export const asignaturasOficiales: AreaAsignaturasOficiales[] = [
       { id: "EMT_AUD", officialName: "Educación Media Técnica en Audiovisuales", shortName: "MT-Audiovisuales" },
       { id: "EMT_BD", officialName: "Educación Media Técnica en Bases de Datos", shortName: "MT-Bases de Datos" }
     ]
+  },
+  {
+    area: "Educación Inicial y Transición",
+    materias: [
+      { id: "TRANS_PROP", officialName: "Propósitos 1, 2, 3 y 4 (Educación Inicial/Transición)", shortName: "Propósitos 1, 2, 3 y 4" },
+      { id: "TRANS_PROY", officialName: "Proyectos Lúdico Pedagógicos", shortName: "Proyectos Lúdico Pedagógicos" }
+    ]
   }
 ];
 
@@ -189,6 +196,8 @@ export const MATERIAS_COLOR_MAP: Record<string, string> = {
   TEC_INF: '#0284C7', // Azul Celeste (Tecnología)
   EMT_AUD: '#C026D3', // Fucsia (MT - Audiovisuales)
   EMT_BD: '#9333EA',  // Violeta (MT - Bases de datos)
+  TRANS_PROP: '#0EA5E9', // Azul Cielo (Propósitos Educación Inicial)
+  TRANS_PROY: '#F97316', // Naranja Cálido (Proyectos Lúdico Pedagógicos)
 };
 
 /**

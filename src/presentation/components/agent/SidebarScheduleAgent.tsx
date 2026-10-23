@@ -3,6 +3,7 @@ import { Bot, Send, Loader2, ChevronDown, RotateCcw, Zap } from 'lucide-react';
 import { UserEntity } from '../../../domain/entities/user.entity';
 import { TimeBlockEntity } from '../../../domain/entities/time-block.entity';
 import { ShiftType } from '../../../domain/entities/grade.entity';
+import { isTeacherPresentAtSlot, getTeacherEntrySchedule } from '../../../domain/services/teacher-visual-identity.service';
 
 interface ChatMessage {
   id: string;
@@ -69,6 +70,9 @@ export const SidebarScheduleAgent: React.FC<SidebarScheduleAgentProps> = ({
       const name = (b.teacherName || '').trim();
       if (!name) return;
       hoursByTeacher.set(name, (hoursByTeacher.get(name) || 0) + 1);
+      if (b.teacherId) {
+        hoursByTeacher.set(b.teacherId, (hoursByTeacher.get(b.teacherId) || 0) + 1);
+      }
     });
 
     const teachersSummary = teachers.length > 0
@@ -76,8 +80,9 @@ export const SidebarScheduleAgent: React.FC<SidebarScheduleAgentProps> = ({
           name: t.displayName,
           level: t.academicLevel || 'general',
           subjects: t.subjects?.length ? t.subjects : t.allowedSubjects || [],
-          weeklyAssignedHours: hoursByTeacher.get(t.displayName) || 0,
+          weeklyAssignedHours: hoursByTeacher.get(t.id) || hoursByTeacher.get(t.displayName) || 0,
           maxWeeklyHours: !t.maxWeeklyHours || t.maxWeeklyHours === 22 || t.maxWeeklyHours === 25 ? 24 : t.maxWeeklyHours,
+          entrySchedule: t.entrySchedule?.label || getTeacherEntrySchedule(t.id, t.displayName)?.label,
         }))
       : Array.from(hoursByTeacher.entries()).map(([name, count]) => ({
           name,
@@ -128,7 +133,11 @@ export const SidebarScheduleAgent: React.FC<SidebarScheduleAgentProps> = ({
             .filter((b) => b.dayOfWeek === day && b.period === p)
             .map((b) => (b.teacherName || '').trim())
         );
-        const freeInSlot = allShiftTeacherNames.filter((name) => !busyInSlot.has(name));
+        const freeInSlot = allShiftTeacherNames.filter(
+          (name) =>
+            !busyInSlot.has(name) &&
+            isTeacherPresentAtSlot(name, name, day, p, selectedShift).isPresent
+        );
         if (freeInSlot.length > 0) {
           daySlots.push(`${p}ªh: [${freeInSlot.slice(0, 5).join(', ')}]`);
         }

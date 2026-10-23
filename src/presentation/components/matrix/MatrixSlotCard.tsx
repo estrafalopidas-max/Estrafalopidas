@@ -1,27 +1,47 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { TimeBlockEntity, classifyBlockType } from '../../../domain/entities/time-block.entity';
 import { AbsenceRequestEntity } from '../../../domain/entities/absence-request.entity';
-import { AlertCircle, CheckCircle2, AlertTriangle, Coffee, LogOut, Laptop, GripVertical, Pencil } from 'lucide-react';
-import { getTeacherVisualIdentity, toTitleCase, EXCEL_TEACHERS_DICTIONARY } from '../../../domain/services/teacher-visual-identity.service';
+import {
+  AlertCircle,
+  CheckCircle2,
+  AlertTriangle,
+  Coffee,
+  LogOut,
+  Laptop,
+  GripVertical,
+  Pencil,
+  BookOpen,
+  Users,
+  ShieldCheck,
+  Megaphone,
+  UserCheck,
+  CalendarDays,
+} from 'lucide-react';
+import {
+  getTeacherVisualIdentity,
+  toTitleCase,
+  getShortTeacherName,
+  getFullTeacherName,
+  EXCEL_TEACHERS_DICTIONARY,
+} from '../../../domain/services/teacher-visual-identity.service';
 import { reconcileSubjectWithCatalog } from '../../../domain/services/subject-normalization.service';
 import { useCoordinatorMatrix } from '../../context/CoordinatorMatrixContext';
 import { calculateLuminanceContrast } from '../../../domain/services/teacher-color.service';
 
+export { getShortTeacherName, getFullTeacherName };
+
 /**
  * Algoritmo de Iniciales Automáticas:
- * Extrae la primera letra del nombre y la primera letra del apellido.
- * Ejemplo: para 'Alex Uribe' -> 'AU'.
- * Ejemplo: para 'Carlos Mendoza' -> 'CM'.
- * Ejemplo: para 'Diana Marcela Vélez' -> 'DV'.
+ * Extrae la primera letra del primer nombre y la primera letra del primer apellido
+ * (coincidiendo con el formato corto 'Nombre Apellido' de la casilla).
  */
 export function getFirstAndLastNameInitials(name: string | null | undefined): string {
   if (!name || !name.trim()) return '--';
 
-  const clean = name
-    .trim()
-    .replace(/^(prof\.|docente|profesor|profesora|lic\.|ing\.|coord\.)\s+/i, '');
+  const shortName = getShortTeacherName(name);
+  if (!shortName || shortName === 'Sin Asignar') return '--';
 
-  const words = clean.split(/\s+/).filter(Boolean);
+  const words = shortName.split(/\s+/).filter(Boolean);
   if (words.length === 0) return '--';
 
   if (words.length === 1) {
@@ -31,10 +51,7 @@ export function getFirstAndLastNameInitials(name: string | null | undefined): st
       : single[0].toUpperCase();
   }
 
-  // Primera letra del primer nombre y primera letra del último apellido
-  const firstInitial = words[0][0];
-  const lastInitial = words[words.length - 1][0];
-  return (firstInitial + lastInitial).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
 }
 
 /**
@@ -145,41 +162,83 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
       noveltyReasonUpper.includes('ACTO CÍVICO') ||
       noveltyReasonUpper.includes('ACTO CIVICO');
 
+    const renderNoveltyCategoryIcon = () => {
+      if (isActoCivico) {
+        return (
+          <svg
+            viewBox="0 0 24 16"
+            className="w-4 h-3 block rounded-[2px] shadow-2xs border border-amber-950/20 shrink-0"
+            aria-label="Bandera de Colombia"
+          >
+            <rect width="24" height="8" y="0" fill="#FCD116" />
+            <rect width="24" height="4" y="8" fill="#003893" />
+            <rect width="24" height="4" y="12" fill="#CE1126" />
+          </svg>
+        );
+      }
+      if (
+        noveltyReasonUpper.includes('JORNADA PEDAG') ||
+        noveltyReasonUpper.includes('CAPACITACI') ||
+        noveltyReasonUpper.includes('TALLER')
+      ) {
+        return <BookOpen className="w-3.5 h-3.5 text-amber-800 shrink-0 stroke-[2.2]" aria-label="Jornada pedagógica" />;
+      }
+      if (
+        noveltyReasonUpper.includes('REUNI') ||
+        noveltyReasonUpper.includes('ÁREA') ||
+        noveltyReasonUpper.includes('AREA') ||
+        noveltyReasonUpper.includes('CONSEJO')
+      ) {
+        return <Users className="w-3.5 h-3.5 text-amber-800 shrink-0 stroke-[2.2]" aria-label="Reunión de área" />;
+      }
+      if (
+        noveltyReasonUpper.includes('DIRECCI') ||
+        noveltyReasonUpper.includes('GRUPO') ||
+        noveltyReasonUpper.includes('CONVIVENCIA')
+      ) {
+        return <ShieldCheck className="w-3.5 h-3.5 text-amber-800 shrink-0 stroke-[2.2]" aria-label="Dirección de grupo" />;
+      }
+      if (
+        noveltyReasonUpper.includes('SINDICAL') ||
+        noveltyReasonUpper.includes('ASAMBLEA') ||
+        noveltyReasonUpper.includes('PARO')
+      ) {
+        return <Megaphone className="w-3.5 h-3.5 text-amber-800 shrink-0 stroke-[2.2]" aria-label="Actividad sindical" />;
+      }
+      if (
+        noveltyReasonUpper.includes('DOCENTE') ||
+        noveltyReasonUpper.includes('PERMISO') ||
+        noveltyReasonUpper.includes('INCAPACIDAD') ||
+        noveltyReasonUpper.includes('CALAMIDAD')
+      ) {
+        return <UserCheck className="w-3.5 h-3.5 text-amber-800 shrink-0 stroke-[2.2]" aria-label="Novedad docente" />;
+      }
+      return <CalendarDays className="w-3.5 h-3.5 text-amber-800 shrink-0 stroke-[2.2]" aria-label="Evento institucional" />;
+    };
+
     return (
       <div
         onClick={onClick}
-        title={`NOVEDAD INSTITUCIONAL: ${noveltyReasonUpper}`}
-        className={`h-full min-h-[100px] rounded-xl border-2 border-amber-500 bg-amber-50 hover:bg-amber-100/90 hover:border-amber-600 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform cursor-pointer flex flex-col justify-center items-center text-center p-1.5 gap-1.5 select-none shadow-xs group relative overflow-hidden ${
+        title={`Novedad institucional: ${noveltyReasonUpper}`}
+        className={`h-full min-h-[100px] rounded-xl border border-amber-400/90 bg-gradient-to-b from-amber-50 via-amber-50/95 to-amber-100/70 hover:from-amber-100/80 hover:to-amber-100 hover:border-amber-500 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform cursor-pointer flex flex-col justify-start items-stretch text-center select-none shadow-xs ring-1 ring-inset ring-amber-500/15 group relative overflow-hidden ${
           isSettling ? 'scale-[0.97] opacity-90 shadow-md' : 'scale-100 opacity-100'
         }`}
       >
-        {/* Encabezado: Icono de Advertencia y Título NOVEDAD INSTITUCIONAL */}
-        <div className="flex items-center justify-center gap-1 text-amber-800 w-full px-0.5 shrink-0">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-          <span className="text-[8px] sm:text-[8.5px] font-black uppercase tracking-tight text-amber-800 leading-[1.08] text-center">
-            NOVEDAD INSTITUCIONAL
+        {/* 2/3 partes superiores: Ícono (+75%) -> Novedad institucional -> Descripción -> Ícono representativo */}
+        <div className="w-full min-h-[67%] px-2 pt-2 pb-1.5 flex flex-col items-center justify-center gap-1 text-center">
+          <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 stroke-[2.25]" />
+          <span className="block shrink-0 text-[8.5px] font-semibold text-amber-800/85 leading-none tracking-tight">
+            Novedad institucional
           </span>
-        </div>
-
-        {/* Descripción de la Novedad en Mayúscula Sostenida */}
-        <div className="w-full px-1 flex flex-col items-center justify-center text-center overflow-hidden">
           <span
-            className="text-[10px] sm:text-[10.5px] font-black uppercase text-amber-950 leading-[1.18] text-center break-words line-clamp-3 max-w-full inline-flex items-center justify-center gap-1 flex-wrap"
+            className="block shrink-0 text-[10.5px] font-black uppercase tracking-tight text-amber-950 leading-[1.15] text-center break-words line-clamp-2 max-w-full"
             title={noveltyReasonUpper}
           >
-            {isActoCivico && (
-              <svg
-                viewBox="0 0 24 16"
-                className="w-4 h-3 rounded-[2px] shadow-2xs border border-amber-900/25 shrink-0 inline-block"
-                aria-label="Bandera de Colombia"
-              >
-                <rect width="24" height="8" y="0" fill="#FCD116" />
-                <rect width="24" height="4" y="8" fill="#003893" />
-                <rect width="24" height="4" y="12" fill="#CE1126" />
-              </svg>
-            )}
-            <span>{noveltyReasonUpper}</span>
+            {noveltyReasonUpper}
           </span>
+          <div className="shrink-0 pt-0.5 flex items-center justify-center">
+            {renderNoveltyCategoryIcon()}
+          </div>
         </div>
       </div>
     );
@@ -268,9 +327,10 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
     ? getTeacherColor(timeBlock.teacherId, timeBlock.teacherName)
     : (getTeacherVisualIdentity(timeBlock.teacherId, timeBlock.teacherName).color_hex || '#007DC5');
 
-  // Algoritmo de Iniciales Automáticas ('AU' para Alex Uribe)
-  const teacherInitials = getFirstAndLastNameInitials(timeBlock.teacherName || timeBlock.teacherId);
-  const normalizedTeacherName = toTitleCase(timeBlock.teacherName || timeBlock.teacherId || 'Sin Asignar');
+  // Algoritmo de Iniciales Automáticas y Nombre Corto ('Nombre Apellido') para la casilla
+  const shortTeacherName = getShortTeacherName(timeBlock.teacherId, timeBlock.teacherName);
+  const fullTeacherName = getFullTeacherName(timeBlock.teacherId, timeBlock.teacherName);
+  const teacherInitials = getFirstAndLastNameInitials(shortTeacherName);
 
   // Motor de Contraste: text-white o text-gray-900 (sin grises)
   const contrastClass = getContrastTextColor(docenteColorHex);
@@ -331,12 +391,12 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
         )}
         {isCovered && (
           <span className="mt-0.5 text-[8px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded shadow-2xs truncate max-w-full leading-tight shrink-0">
-            R: {toTitleCase(timeBlock.replacementTeacherName || 'Asignado')}
+            R: {getShortTeacherName(timeBlock.replacementTeacherId, timeBlock.replacementTeacherName || 'Asignado')}
           </span>
         )}
       </div>
 
-      {/* BLOQUE INFERIOR (Firma / Píldora del Docente - 42%): Nombre del profe con mayor tamaño a 2 líneas y lapicito en hover */}
+      {/* BLOQUE INFERIOR (Firma / Píldora del Docente - 42%): Solo Nombre y Apellido en la casilla, Nombre Completo en tooltip/modal */}
       <div
         onClick={(e) => {
           if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -345,7 +405,8 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
           const matchedTeacher = teachers.find(
             (t) =>
               t.id === timeBlock.teacherId ||
-              (cleanName && t.displayName?.trim().toLowerCase() === cleanName)
+              (cleanName && t.displayName?.trim().toLowerCase() === cleanName) ||
+              (cleanName && t.shortName?.trim().toLowerCase() === cleanName)
           );
           if (matchedTeacher) {
             openTeacherModal(matchedTeacher, false);
@@ -353,8 +414,9 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
             openTeacherModal(
               {
                 id: timeBlock.teacherId,
-                displayName: normalizedTeacherName,
-                email: `${cleanName.replace(/\s+/g, '.')}@villaflora.edu.co`,
+                displayName: fullTeacherName,
+                shortName: shortTeacherName,
+                email: `${shortTeacherName.toLowerCase().replace(/\s+/g, '.')}@villaflora.edu.co`,
                 role: 'teacher',
                 documentId: '',
                 maxWeeklyHours: 24,
@@ -374,7 +436,7 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
         }}
         className="group/pill w-full h-[42%] flex items-center shrink-0 overflow-hidden cursor-pointer relative hover:brightness-95 transition-all"
         style={{ backgroundColor: docenteColorHex }}
-        title={`Clic para editar docente: ${normalizedTeacherName}`}
+        title={`Clic para editar docente: ${fullTeacherName}`}
       >
         {/* Avatar de Iniciales (Izquierda): Ancho estricto w-6 con bg-black/20; muestra lapicito al hacer hover */}
         <div className="w-6 flex-shrink-0 flex items-center justify-center h-full bg-black/20 font-bold text-[10px] text-white select-none relative">
@@ -384,14 +446,14 @@ export const MatrixSlotCard: React.FC<MatrixSlotCardProps> = ({
           <Pencil className="w-3 h-3 text-white absolute opacity-0 group-hover/pill:opacity-100 group-hover:opacity-100 transition-opacity duration-150" />
         </div>
 
-        {/* Nombre del Profesor (Derecha): Texto aumentado (11px-12px) distribuido a 2 líneas */}
+        {/* Nombre del Profesor (Derecha): Solo Nombre y Apellido para no congestionar la casilla */}
         <span
           className={`flex-1 px-1 text-[11px] sm:text-xs leading-[1.15] text-center break-words line-clamp-2 text-ellipsis font-semibold ${contrastClass} ${
             isAbsent ? 'line-through opacity-80' : ''
           }`}
-          title={`Clic para editar docente: ${normalizedTeacherName}`}
+          title={`Clic para editar docente: ${fullTeacherName}`}
         >
-          {normalizedTeacherName}
+          {shortTeacherName}
         </span>
       </div>
     </div>

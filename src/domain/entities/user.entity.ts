@@ -11,7 +11,14 @@ export type AcademicAssignmentStatus = 'pending_assignment' | 'assigned';
 export interface UserEntity {
   id: string; // Identificador único (UUID)
   email: string;
-  displayName: string;
+  displayName: string; // Nombre completo oficial (Nombres y Apellidos)
+  shortName?: string; // Solo Nombre y Primer Apellido para las casillas de la parrilla
+  groupDirection?: string; // Dirección de grupo (ej. 'TS-01', '01-01', ..., '11-01', 'Sin asignación')
+  entrySchedule?: {
+    defaultEntryTime: string;
+    exceptions?: Partial<Record<'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes', string>>;
+    label: string;
+  };
   role: UserRole;
   documentId: string; // Cédula de Ciudadanía
   phone?: string;

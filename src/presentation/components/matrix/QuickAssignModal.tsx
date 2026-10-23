@@ -8,7 +8,7 @@ import {
   getFirstAndLastNameInitials,
   getContrastTextColor,
 } from './MatrixSlotCard';
-import { toTitleCase } from '../../../domain/services/teacher-visual-identity.service';
+import { toTitleCase, isTeacherPresentAtSlot } from '../../../domain/services/teacher-visual-identity.service';
 import { asignaturasOficiales, ALL_OFFICIAL_MATERIAS, findOfficialSubject } from '../../../domain/constants/subjects';
 import {
   X,
@@ -198,11 +198,26 @@ export const QuickAssignModal: React.FC<QuickAssignModalProps> = ({
     return teachers.filter((t) => t.role === 'teacher' && t.isActive !== false);
   }, [teachers]);
 
-  // Collision checking for each teacher in this specific period and day
+  // Collision and school arrival schedule checking for each teacher in this specific period and day
   const teacherAvailabilityMap = useMemo(() => {
-    const map = new Map<string, { isAvailable: boolean; occupiedInGrade?: string }>();
+    const map = new Map<string, { isAvailable: boolean; occupiedInGrade?: string; entryRestriction?: string }>();
 
     for (const teacher of activeTeachers) {
+      const presence = isTeacherPresentAtSlot(
+        teacher.id,
+        teacher.displayName,
+        dayOfWeek,
+        period,
+        _shift
+      );
+      if (!presence.isPresent) {
+        map.set(teacher.id, {
+          isAvailable: false,
+          entryRestriction: `Ingresa 9:25 a.m.`,
+        });
+        continue;
+      }
+
       const collisionBlock = allBlocks.find(
         (b) =>
           (b.teacherId === teacher.id ||
@@ -224,7 +239,7 @@ export const QuickAssignModal: React.FC<QuickAssignModalProps> = ({
     }
 
     return map;
-  }, [activeTeachers, allBlocks, dayOfWeek, period]);
+  }, [activeTeachers, allBlocks, dayOfWeek, period, _shift]);
 
   // Filtered teachers list based on search term
   const filteredTeachers = useMemo(() => {
@@ -588,6 +603,14 @@ export const QuickAssignModal: React.FC<QuickAssignModalProps> = ({
                               <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200 shrink-0">
                                 <CheckCircle2 className="w-2.5 h-2.5" />
                                 Disponible
+                              </span>
+                            ) : avail?.entryRestriction ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-300 shrink-0"
+                                title={teacher.entrySchedule?.label || avail.entryRestriction}
+                              >
+                                <Clock className="w-2.5 h-2.5" />
+                                {avail.entryRestriction}
                               </span>
                             ) : (
                               <span

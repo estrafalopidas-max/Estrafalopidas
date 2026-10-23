@@ -1,6 +1,6 @@
 import { TimeBlockEntity, classifyBlockType } from '../entities/time-block.entity';
 import { calculateLuminanceContrast } from './teacher-color.service';
-import { toTitleCase } from './teacher-visual-identity.service';
+import { toTitleCase, getShortTeacherName } from './teacher-visual-identity.service';
 import { getFirstAndLastNameInitials } from './html-schedule-generator.service';
 
 export interface PdfSlotConfig {
@@ -531,7 +531,7 @@ export async function downloadScheduleAsPdf(options: PdfScheduleExportOptions): 
           name: b.teacherName || 'Sin asignar',
           color: '#034EA2',
         };
-      const teacherName = toTitleCase(b.teacherName || teacherInfo.name || 'Sin Asignar');
+      const teacherName = getShortTeacherName(b.teacherId, b.teacherName || teacherInfo.name || 'Sin Asignar');
 
       if (effectiveType === 'novelty' || b.motivo_novedad) {
         drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 6);
@@ -562,41 +562,81 @@ export async function downloadScheduleAsPdf(options: PdfScheduleExportOptions): 
         const isActoCivico =
           reasonUpper.includes('ACTO CÍVICO') || reasonUpper.includes('ACTO CIVICO');
 
-        ctx.fillStyle = '#92400e';
-        ctx.font = '800 8px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const iconY = cardY + 14;
+        const subY = cardY + 25;
+
         ctx.textAlign = 'center';
-        ctx.fillText('⚠️ NOVEDAD INSTITUCIONAL', cardX + cardW / 2, cardY + cardH / 2 - 12);
+        ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = '#d97706';
+        ctx.fillText('⚠️', cardX + cardW / 2, iconY);
+
+        ctx.fillStyle = '#92400e';
+        ctx.font = '600 7.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText('Novedad institucional', cardX + cardW / 2, subY);
 
         ctx.fillStyle = '#451a03';
         ctx.font = '900 9.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        const novLines = wrapTextLines(ctx, reasonUpper, cardW - (isActoCivico ? 26 : 10), 2);
-        const startY = cardY + cardH / 2 + 4;
-
+        const novLines = wrapTextLines(ctx, reasonUpper, cardW - 10, 2);
+        const descStartY = cardY + (novLines.length > 1 ? 36 : 38);
         novLines.forEach((ln, li) => {
-          const lineY = startY + li * 12;
-          if (li === 0 && isActoCivico) {
-            const flagW = 13;
-            const flagH = 9;
-            const textW = ctx.measureText(ln).width;
-            const totalW = flagW + 4 + textW;
-            const startX = cardX + (cardW - totalW) / 2;
-            const flagY = lineY - 8;
-            ctx.fillStyle = '#FCD116';
-            ctx.fillRect(startX, flagY, flagW, flagH * 0.5);
-            ctx.fillStyle = '#003893';
-            ctx.fillRect(startX, flagY + flagH * 0.5, flagW, flagH * 0.25);
-            ctx.fillStyle = '#CE1126';
-            ctx.fillRect(startX, flagY + flagH * 0.75, flagW, flagH * 0.25);
-            ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-            ctx.strokeRect(startX, flagY, flagW, flagH);
-            ctx.fillStyle = '#451a03';
-            ctx.textAlign = 'left';
-            ctx.fillText(ln, startX + flagW + 4, lineY);
-            ctx.textAlign = 'center';
-          } else {
-            ctx.fillText(ln, cardX + cardW / 2, lineY);
-          }
+          ctx.fillText(ln, cardX + cardW / 2, descStartY + li * 10);
         });
+
+        const afterDescY = descStartY + (novLines.length - 1) * 10;
+
+        if (isActoCivico) {
+          const flagW = 14;
+          const flagH = 9;
+          const flagX = cardX + (cardW - flagW) / 2;
+          const flagY = afterDescY + 6;
+          ctx.fillStyle = '#FCD116';
+          ctx.fillRect(flagX, flagY, flagW, flagH * 0.5);
+          ctx.fillStyle = '#003893';
+          ctx.fillRect(flagX, flagY + flagH * 0.5, flagW, flagH * 0.25);
+          ctx.fillStyle = '#CE1126';
+          ctx.fillRect(flagX, flagY + flagH * 0.75, flagW, flagH * 0.25);
+          ctx.strokeStyle = 'rgba(69,26,3,0.2)';
+          ctx.strokeRect(flagX, flagY, flagW, flagH);
+        } else {
+          let catSymbol = '📅';
+          if (
+            reasonUpper.includes('JORNADA PEDAG') ||
+            reasonUpper.includes('CAPACITACI') ||
+            reasonUpper.includes('TALLER')
+          ) {
+            catSymbol = '📖';
+          } else if (
+            reasonUpper.includes('REUNI') ||
+            reasonUpper.includes('ÁREA') ||
+            reasonUpper.includes('AREA') ||
+            reasonUpper.includes('CONSEJO')
+          ) {
+            catSymbol = '👥';
+          } else if (
+            reasonUpper.includes('DIRECCI') ||
+            reasonUpper.includes('GRUPO') ||
+            reasonUpper.includes('CONVIVENCIA')
+          ) {
+            catSymbol = '🛡️';
+          } else if (
+            reasonUpper.includes('SINDICAL') ||
+            reasonUpper.includes('ASAMBLEA') ||
+            reasonUpper.includes('PARO')
+          ) {
+            catSymbol = '📢';
+          } else if (
+            reasonUpper.includes('DOCENTE') ||
+            reasonUpper.includes('PERMISO') ||
+            reasonUpper.includes('INCAPACIDAD') ||
+            reasonUpper.includes('CALAMIDAD')
+          ) {
+            catSymbol = '👤';
+          }
+
+          ctx.fillStyle = '#92400e';
+          ctx.font = '700 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillText(catSymbol, cardX + cardW / 2, afterDescY + 14);
+        }
         return;
       }
       const colorHex = teacherInfo.color || '#034EA2';
