@@ -3,18 +3,32 @@ import { UserEntity, UserRole } from '../../domain/entities/user.entity';
 
 const LS_BACKUP_KEY = 'ievf_users_v1';
 
+function isRemovedTeacher(u: Partial<UserEntity> | null | undefined): boolean {
+  if (!u) return true;
+  if (u.id === 't-adriana-mier') return true;
+  const name = (u.displayName || u.shortName || '').toLowerCase();
+  return name.includes('adriana mier') || name.includes('adriana lucía mier') || name.includes('adriana lucia mier');
+}
+
+function normalizeUserRecord(u: UserEntity): UserEntity {
+  let shortName = u.shortName;
+  if (u.id === 't-m-isabel') shortName = 'Mª Isabel Giraldo';
+  if (u.id === 't-alejandra') shortName = 'Alejandra Pérez';
+  return {
+    ...u,
+    shortName,
+    maxWeeklyHours: !u.maxWeeklyHours || u.maxWeeklyHours === 22 ? 24 : u.maxWeeklyHours,
+  };
+}
+
 export class FirestoreUserRepository implements IUserRepository {
   async getAll(): Promise<UserEntity[]> {
     const raw = localStorage.getItem(LS_BACKUP_KEY);
     if (!raw) return [];
     const parsed: UserEntity[] = JSON.parse(raw);
-    return parsed.map((u) => ({
-      ...u,
-      maxWeeklyHours:
-        !u.maxWeeklyHours || u.maxWeeklyHours === 22
-          ? 24
-          : u.maxWeeklyHours,
-    }));
+    return parsed
+      .filter((u) => !isRemovedTeacher(u))
+      .map(normalizeUserRecord);
   }
 
   async getTeachers(): Promise<UserEntity[]> {
@@ -87,12 +101,8 @@ export class FirestoreUserRepository implements IUserRepository {
     const raw = localStorage.getItem(LS_BACKUP_KEY);
     if (!raw) return [];
     const parsed: UserEntity[] = JSON.parse(raw);
-    return parsed.map((u) => ({
-      ...u,
-      maxWeeklyHours:
-        !u.maxWeeklyHours || u.maxWeeklyHours === 22
-          ? 24
-          : u.maxWeeklyHours,
-    }));
+    return parsed
+      .filter((u) => !isRemovedTeacher(u))
+      .map(normalizeUserRecord);
   }
 }

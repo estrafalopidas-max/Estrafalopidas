@@ -94,9 +94,13 @@ export const SidebarScheduleAgent: React.FC<SidebarScheduleAgentProps> = ({
 
     const shiftBlocks = classBlocks.filter((b) => {
       if (selectedShift === 'transicion-1') {
-        return b.gradeName?.toUpperCase().includes('T1') || b.gradeId?.includes('t1');
+        return (
+          b.shift === 'transicion-1' ||
+          b.gradeName?.toLowerCase().includes('transici') ||
+          b.gradeId?.includes('trans')
+        );
       }
-      return b.shift === selectedShift;
+      return b.shift === selectedShift && !b.gradeName?.toLowerCase().includes('transici');
     });
 
     const uncovered = shiftBlocks.filter((b) => b.status === 'absent');

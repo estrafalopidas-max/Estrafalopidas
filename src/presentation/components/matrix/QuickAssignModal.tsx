@@ -509,7 +509,7 @@ export const QuickAssignModal: React.FC<QuickAssignModalProps> = ({
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Search Bar */}
             <div className="p-4 border-b border-slate-100 bg-white shrink-0">
-              <div className="relative">
+              <div className="relative flex items-center">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   ref={searchInputRef}
@@ -517,14 +517,17 @@ export const QuickAssignModal: React.FC<QuickAssignModalProps> = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar profesor por nombre o asignatura..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                  className="w-full pl-10 pr-9 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                 />
                 {searchTerm && (
                   <button
+                    type="button"
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs px-1.5 py-0.5 rounded-md bg-slate-200"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 p-1 rounded-full transition cursor-pointer"
+                    title="Limpiar búsqueda"
+                    aria-label="Limpiar búsqueda"
                   >
-                    Limpiar
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>

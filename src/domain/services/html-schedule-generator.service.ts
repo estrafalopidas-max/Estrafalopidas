@@ -127,7 +127,7 @@ export function getFirstAndLastNameInitials(name: string | null | undefined): st
       : single[0].toUpperCase();
   }
 
-  return (words[0][0] + words[1][0]).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
 /**
@@ -159,18 +159,14 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
 
   // Helper to resolve shift from block or grade name
   const resolveBlockShift = (b: TimeBlockEntity): 'morning' | 'afternoon' | 'transicion-1' => {
+    const g = (b.gradeName || '').trim().toLowerCase();
+    if (g.includes('transición') || g.includes('transicion')) {
+      return 'transicion-1';
+    }
     if (b.shift === 'morning' || b.shift === 'afternoon' || b.shift === 'transicion-1') {
       return b.shift;
     }
-    const g = (b.gradeName || '').trim();
-    if (g.toLowerCase().includes('transición 1') || g.toLowerCase().includes('transicion 1')) {
-      return 'transicion-1';
-    }
-    if (
-      g.toLowerCase().includes('transición 2') ||
-      g.toLowerCase().includes('transicion 2') ||
-      /^[1-5]\./.test(g)
-    ) {
+    if (/^[1-5]\./.test(g)) {
       return 'afternoon';
     }
     return 'morning';
@@ -293,9 +289,16 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
     };
   });
 
+  const activeTeachers = teachers.filter(
+    (t) =>
+      t.id !== 't-adriana-mier' &&
+      !String(t.displayName || '').toLowerCase().includes('adriana mier') &&
+      !String(t.displayName || '').toLowerCase().includes('adriana luc')
+  );
+
   const jsonSerialized = JSON.stringify(scheduleData).replace(/</g, '\\u003c');
   const teachersSerialized = JSON.stringify(
-    teachers.map((t) => ({
+    activeTeachers.map((t) => ({
       id: t.id,
       name: getShortTeacherName(t.id, t.displayName || ''),
       fullName: getFullTeacherName(t.id, t.displayName || ''),
@@ -548,6 +551,36 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       background-color: #ffffff;
       box-shadow: 0 0 0 2px rgba(12, 77, 162, 0.15);
     }
+    .search-input-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .search-clear-btn {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: all 0.15s ease;
+    }
+    .search-clear-btn:hover {
+      background: #e2e8f0;
+      color: #334155;
+    }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -675,14 +708,16 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    table.schedule-table th:first-child {
-      text-align: left;
+    table.schedule-table th:first-child,
+    table.schedule-table th.time-col-th {
+      text-align: center;
       padding: 8px 8px;
-      font-size: 0.66rem;
-      color: var(--text-muted);
+      font-size: 0.80rem;
+      font-weight: 800;
+      color: #334155;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      width: 96px;
+      width: 112px;
     }
     table.schedule-table td {
       padding: 3px;
@@ -692,26 +727,30 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       height: 92px;
       overflow: hidden;
     }
-    table.schedule-table td:first-child {
-      padding: 6px 8px;
-      width: 96px;
+    table.schedule-table td:first-child,
+    table.schedule-table td.time-col-td {
+      padding: 8px 6px;
+      width: 112px;
       vertical-align: middle;
+      text-align: center;
       background: #f8fafc;
     }
     .time-slot-label {
       font-weight: 800;
       color: var(--primary);
       display: block;
-      font-size: 0.75rem;
+      font-size: 0.96rem;
+      line-height: 1.2;
       white-space: nowrap;
     }
     .time-slot-hours {
-      font-size: 0.66rem;
-      color: var(--text-muted);
+      font-size: 0.84rem;
+      color: #1e293b;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-weight: 600;
+      font-weight: 800;
       display: block;
-      margin-top: 2px;
+      margin-top: 4px;
+      letter-spacing: -0.02em;
       white-space: nowrap;
     }
 
@@ -1124,8 +1163,8 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
           <span style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Jornada:</span>
           <div class="shifts-nav" id="shiftsNav">
             <button type="button" class="shift-tab active" data-shift="morning" onclick="selectShift('morning')">☀️ Bachillerato (Mañana)</button>
-            <button type="button" class="shift-tab" data-shift="afternoon" onclick="selectShift('afternoon')">🌤️ Primaria y T2 (Tarde)</button>
-            <button type="button" class="shift-tab" data-shift="transicion-1" onclick="selectShift('transicion-1')">✨ Transición 1</button>
+            <button type="button" class="shift-tab" data-shift="afternoon" onclick="selectShift('afternoon')">🌤️ Primaria (Tarde)</button>
+            <button type="button" class="shift-tab" data-shift="transicion-1" onclick="selectShift('transicion-1')">✨ Transición</button>
           </div>
         </div>
 
@@ -1138,7 +1177,10 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
             <option value="ALL">Todos los docentes</option>
           </select>
 
-          <input type="text" id="searchInput" class="form-control" placeholder="Buscar asignatura o aula..." oninput="renderSchedule()" style="width: 200px; cursor: text;">
+          <div class="search-input-wrap">
+            <input type="text" id="searchInput" class="form-control" placeholder="Buscar asignatura o aula..." oninput="handleSearchInput()" style="width: 210px; padding-right: 28px; cursor: text;">
+            <button type="button" id="clearSearchBtn" class="search-clear-btn" onclick="clearSearchInput()" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">&#10005;</button>
+          </div>
         </div>
       </div>
 
@@ -1182,8 +1224,8 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
 
     const SHIFT_GRADES = {
       'morning': ['6°1', '6°2', '7°1', '7°2', '8°1', '8°2', '9°1', '9°2', '10°1', '10°2', '11°1', '11°2'],
-      'afternoon': ['Transición 2', '1.1', '1.2', '2.1', '2.2', '3.1', '3.2', '3.3', '4.1', '4.2', '5.1', '5.2'],
-      'transicion-1': ['Transición 1']
+      'afternoon': ['1.1', '1.2', '2.1', '2.2', '3.1', '3.2', '3.3', '4.1', '4.2', '5.1', '5.2'],
+      'transicion-1': ['Transición 1', 'Transición 2']
     };
 
     function formatMin(m) {
@@ -1198,27 +1240,22 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
         if (isMeeting) {
           list.push({
             period: -2,
-            time: '12:00 - 12:45',
+            time: '06:30 - 07:00',
+            secondaryTime: '12:00 - 12:30',
             label: 'Pre-Jornada',
             isPreJornada: true,
             meetingTitle: 'ATENCIÓN A PADRES',
-            meetingDesc: 'Franja institucional de excepción (12:00 a 12:45) • Transición 1 • Sin asignación de clases ni sustituciones'
+            meetingDesc: 'Franja institucional de excepción • Sin asignación de clases ni sustituciones'
           });
         }
-        let cur = isMeeting ? (12 * 60 + 45) : (12 * 60 + 30);
-        for (let p = 1; p <= 3; p++) {
-          const end = cur + 55;
-          list.push({ period: p, time: formatMin(cur) + ' - ' + formatMin(end), label: p + 'ª Hora' });
-          cur = end;
-        }
-        const bEnd = cur + 30;
-        list.push({ period: 0, time: formatMin(cur) + ' - ' + formatMin(bEnd), label: 'Descanso Pedagógico y Alimentación Escolar', isBreak: true });
-        cur = bEnd;
-        for (let p = 4; p <= 5; p++) {
-          const end = cur + 55;
-          list.push({ period: p, time: formatMin(cur) + ' - ' + formatMin(end), label: p + 'ª Hora' });
-          cur = end;
-        }
+        list.push(
+          { period: 1, time: '07:00 - 07:50', secondaryTime: '12:30 - 13:20', label: '1ª Hora' },
+          { period: 2, time: '07:50 - 08:40', secondaryTime: '13:20 - 14:10', label: '2ª Hora' },
+          { period: 3, time: '08:40 - 09:30', secondaryTime: '14:10 - 15:00', label: '3ª Hora' },
+          { period: 0, time: '09:30 - 10:20', secondaryTime: '15:00 - 15:50', label: 'Descanso Pedagógico y Alimentación Escolar', isBreak: true },
+          { period: 4, time: '10:20 - 11:10', secondaryTime: '15:50 - 16:40', label: '4ª Hora' },
+          { period: 5, time: '11:10 - 12:00', secondaryTime: '16:40 - 17:30', label: '5ª Hora' }
+        );
         return list;
       }
 
@@ -1231,7 +1268,7 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
             label: 'Pre-Jornada',
             isPreJornada: true,
             meetingTitle: 'ATENCIÓN A PADRES',
-            meetingDesc: 'Franja institucional previa a la jornada lectiva (11:30 a 12:10) • Primaria y Transición 2 • Sin asignación de clases ni sustituciones'
+            meetingDesc: 'Franja institucional previa a la jornada lectiva (11:30 a 12:10) • Primaria • Sin asignación de clases ni sustituciones'
           });
         }
         let cur = isEvent ? (13 * 60) : (12 * 60 + 30);
@@ -1393,6 +1430,28 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       renderSchedule();
     }
 
+    function handleSearchInput() {
+      const inp = document.getElementById('searchInput');
+      const btn = document.getElementById('clearSearchBtn');
+      if (btn && inp) {
+        btn.style.display = inp.value.length > 0 ? 'inline-flex' : 'none';
+      }
+      renderSchedule();
+    }
+
+    function clearSearchInput() {
+      const inp = document.getElementById('searchInput');
+      const btn = document.getElementById('clearSearchBtn');
+      if (inp) {
+        inp.value = '';
+        inp.focus();
+      }
+      if (btn) {
+        btn.style.display = 'none';
+      }
+      renderSchedule();
+    }
+
     function normalizeSearchStr(val) {
       return String(val || '')
         .normalize('NFD')
@@ -1465,21 +1524,43 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
       });
 
       const scheduleType = isMeetingDay ? 'B' : 'A';
+      const isTransicionShift = currentShift === 'transicion-1';
+      const totalCols = isTransicionShift ? (gradesInFilter.length * 2) : (gradesInFilter.length + 1);
       let html = '<table class="schedule-table"><thead><tr>';
-      html += '<th>Horario ' + scheduleType + '</th>';
-      gradesInFilter.forEach(g => {
-        html += '<th>' + g + '</th>';
-      });
+      if (isTransicionShift) {
+        gradesInFilter.forEach(g => {
+          html += '<th class="time-col-th">Horario ' + scheduleType + '</th>';
+          html += '<th>' + g + '</th>';
+        });
+      } else {
+        html += '<th class="time-col-th">Horario ' + scheduleType + '</th>';
+        gradesInFilter.forEach(g => {
+          html += '<th>' + g + '</th>';
+        });
+      }
       html += '</tr></thead><tbody>';
 
       if (isHoliday) {
-        html += '<tr><td colspan="' + (gradesInFilter.length + 1) + '" class="holiday-banner-row">📅 Día Festivo Institucional &bull; Sin actividad académica programada</td></tr>';
+        html += '<tr><td colspan="' + totalCols + '" class="holiday-banner-row">📅 Día Festivo Institucional &bull; Sin actividad académica programada</td></tr>';
       }
 
       activePeriods.forEach(slot => {
         if (slot.isPreJornada && !isHoliday) {
+          if (isTransicionShift) {
+            html += '<tr>';
+            gradesInFilter.forEach(g => {
+              const slotTime = (g === 'Transición 2' && slot.secondaryTime) ? slot.secondaryTime : slot.time;
+              html += '<td class="time-col-td" style="background-color: #fffbeb;"><span class="time-slot-label" style="color: #92400e;">' + slot.label + '</span><span class="time-slot-hours">' + slotTime + '</span></td>';
+              html += '<td class="meeting-row-cell">';
+              html += '<div class="meeting-row-title">👥 ' + slot.meetingTitle + '</div>';
+              html += '<div class="meeting-row-sub">' + slot.meetingDesc + ' (' + slotTime + ')</div>';
+              html += '</td>';
+            });
+            html += '</tr>';
+            return;
+          }
           html += '<tr>';
-          html += '<td style="background-color: #fffbeb;"><span class="time-slot-label" style="color: #92400e;">' + slot.label + '</span><span class="time-slot-hours">' + slot.time + '</span></td>';
+          html += '<td class="time-col-td" style="background-color: #fffbeb;"><span class="time-slot-label" style="color: #92400e;">' + slot.label + '</span><span class="time-slot-hours">' + slot.time + '</span></td>';
           html += '<td colspan="' + gradesInFilter.length + '" class="meeting-row-cell">';
           html += '<div class="meeting-row-title">👥 ' + slot.meetingTitle + '</div>';
           html += '<div class="meeting-row-sub">' + slot.meetingDesc + '</div>';
@@ -1488,17 +1569,27 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
         }
 
         if (slot.isBreak) {
-          html += '<tr><td colspan="' + (gradesInFilter.length + 1) + '" class="break-row">☕ ' + slot.label + ' (' + slot.time + ')</td></tr>';
+          if (isTransicionShift) {
+            html += '<tr>';
+            gradesInFilter.forEach(g => {
+              const slotTime = (g === 'Transición 2' && slot.secondaryTime) ? slot.secondaryTime : slot.time;
+              html += '<td class="time-col-td" style="background-color: #fef3c7;"><span class="time-slot-label" style="color: #78350f;">Receso</span><span class="time-slot-hours">' + slotTime + '</span></td>';
+              html += '<td class="break-row">☕ ' + slot.label + '</td>';
+            });
+            html += '</tr>';
+            return;
+          }
+          html += '<tr><td colspan="' + totalCols + '" class="break-row">☕ ' + slot.label + ' (' + slot.time + ')</td></tr>';
           return;
         }
         if (slot.isTransition) {
-          html += '<tr><td colspan="' + (gradesInFilter.length + 1) + '" class="transition-row">🎓 ' + slot.label + ' (' + slot.time + ')</td></tr>';
+          html += '<tr><td colspan="' + totalCols + '" class="transition-row">🎓 ' + slot.label + ' (' + slot.time + ')</td></tr>';
           return;
         }
 
         if (slot.isMeetingFirstHour && !isHoliday) {
           html += '<tr>';
-          html += '<td><span class="time-slot-label">' + slot.label + '</span><span class="time-slot-hours">' + slot.time + '</span></td>';
+          html += '<td class="time-col-td"><span class="time-slot-label">' + slot.label + '</span><span class="time-slot-hours">' + slot.time + '</span></td>';
           html += '<td colspan="' + gradesInFilter.length + '" class="meeting-row-cell">';
           html += '<div class="meeting-row-title">👥 ' + slot.meetingTitle + '</div>';
           html += '<div class="meeting-row-sub">' + slot.meetingDesc + '</div>';
@@ -1507,9 +1598,15 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
         }
 
         html += '<tr>';
-        html += '<td><span class="time-slot-label">' + slot.label + '</span><span class="time-slot-hours">' + slot.time + '</span></td>';
+        if (!isTransicionShift) {
+          html += '<td class="time-col-td"><span class="time-slot-label">' + slot.label + '</span><span class="time-slot-hours">' + slot.time + '</span></td>';
+        }
 
         gradesInFilter.forEach(grade => {
+          if (isTransicionShift) {
+            const gradeSlotTime = (grade === 'Transición 2' && slot.secondaryTime) ? slot.secondaryTime : slot.time;
+            html += '<td class="time-col-td"><span class="time-slot-label">' + slot.label + '</span><span class="time-slot-hours">' + gradeSlotTime + '</span></td>';
+          }
           if (isHoliday) {
             html += '<td><div class="admin-card-holiday"><span class="holiday-title">Festivo</span><span class="holiday-sub">Sin actividad académica</span></div></td>';
             return;
@@ -1738,12 +1835,12 @@ export function generateStandaloneScheduleHtml(options: HtmlScheduleGenerationOp
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(padX, curY, timeColW, rH);
             ctx.fillStyle = '#0c4da2';
-            ctx.font = '800 12px sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText(slot.label, padX + 12, curY + rH / 2 - 8);
-            ctx.fillStyle = '#64748b';
-            ctx.font = '600 11px monospace';
-            ctx.fillText(slot.time, padX + 12, curY + rH / 2 + 10);
+            ctx.font = '800 14.5px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(slot.label, padX + timeColW / 2, curY + rH / 2 - 9);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '800 13px monospace';
+            ctx.fillText(slot.time, padX + timeColW / 2, curY + rH / 2 + 11);
             if ((slot.isPreJornada || slot.isMeetingFirstHour) && !isHoliday) {
               ctx.fillStyle = '#e5e7eb';
               ctx.fillRect(padX + timeColW, curY, tableW - timeColW, rH);
@@ -1896,6 +1993,13 @@ export function savePublicScheduleSnapshot(
   const normalizedPeriod = !academicPeriod || academicPeriod === '3° Periodo' ? '3er Periodo' : academicPeriod;
   const normalizedWeek = !academicWeek || academicWeek === 8 ? 9 : academicWeek;
 
+  const activeTeachers = teachers.filter(
+    (t) =>
+      t.id !== 't-adriana-mier' &&
+      !String(t.displayName || '').toLowerCase().includes('adriana mier') &&
+      !String(t.displayName || '').toLowerCase().includes('adriana luc')
+  );
+
   const snapshot: PublicScheduleSnapshot = {
     metadata: {
       institutionName: 'Sistema de Agendamiento Escolar Horarios, actividades y jornadas académicas',
@@ -1903,10 +2007,10 @@ export function savePublicScheduleSnapshot(
       academicWeek: normalizedWeek,
       lastUpdated: timestamp,
       totalBlocks: timeBlocks.length,
-      totalTeachers: teachers.length,
+      totalTeachers: activeTeachers.length,
     },
     timeBlocks: normalizeTimeBlocksGrades(timeBlocks),
-    teachers: teachers.map((t) => ({
+    teachers: activeTeachers.map((t) => ({
       id: t.id,
       displayName: t.displayName || '',
       color: t.color_hex || t.color || '#007DC5',

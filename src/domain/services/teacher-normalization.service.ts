@@ -204,10 +204,10 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
   {
     id: 't-m-isabel',
     fullName: 'María Isabel Giraldo Rojas',
-    shortName: 'María Giraldo',
+    shortName: 'Mª Isabel Giraldo',
     pdfName: 'Giraldo Rojas Maria Isabel',
     groupDirection: '06-01',
-    aliases: ['M ISABEL', 'MARIA ISABEL', 'ISABEL GIRALDO', 'MARIA GIRALDO'],
+    aliases: ['M ISABEL', 'Mª ISABEL GIRALDO', 'MARIA ISABEL', 'ISABEL GIRALDO', 'MARIA GIRALDO'],
   },
   {
     id: 't-claudia',
@@ -269,7 +269,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
   {
     id: 't-alejandra',
     fullName: 'María Alejandra Pérez Pino',
-    shortName: 'María Pérez',
+    shortName: 'Alejandra Pérez',
     pdfName: 'Perez Pino Maria Alejandra',
     groupDirection: '10-01',
     aliases: ['ALEJANDRA', 'MARIA ALEJANDRA', 'ALEJANDRA PEREZ', 'MARIA PEREZ'],
@@ -291,7 +291,7 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     aliases: ['NATALIA', 'NATALIA CARO'],
   },
 
-  // 2. Docentes sin Dirección de Grupo (8)
+  // 2. Docentes sin Dirección de Grupo
   {
     id: 't-laura',
     fullName: 'Laura Gallego Cortés',
@@ -299,14 +299,6 @@ export const OFFICIAL_TEACHERS_ROSTER: OfficialTeacherDef[] = [
     pdfName: 'Gallego Cortes Laura',
     groupDirection: 'Sin asignación',
     aliases: ['LAURA', 'LAURA GALLEGO'],
-  },
-  {
-    id: 't-adriana-mier',
-    fullName: 'Adriana Lucía Mier Madrid',
-    shortName: 'Adriana Mier',
-    pdfName: 'Mier Madrid Adriana Lucia',
-    groupDirection: 'Sin asignación',
-    aliases: ['ADRIANA', 'ADRIANA MIER', 'ADRIANA LUCIA'],
   },
   {
     id: 't-omar',
@@ -575,7 +567,7 @@ export function getTeacherInitials(name: string | null | undefined): string {
   const short = getShortTeacherName(name);
   const words = short.split(/\s+/).filter(Boolean);
   if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
   }
   const firstWord = words[0] || '';
   if (firstWord.length >= 2) {

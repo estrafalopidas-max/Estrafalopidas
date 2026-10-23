@@ -207,6 +207,11 @@ export const MainLayout: React.FC = () => {
     }
   }, []);
 
+  const modalTimeBlocks = useMemo(() => {
+    if (!isPublishModalOpen) return [];
+    return getCurrentTimeBlocks();
+  }, [isPublishModalOpen, getCurrentTimeBlocks]);
+
   const handlePublishSchedule = () => {
     setIsPublishModalOpen(true);
   };
@@ -406,14 +411,14 @@ export const MainLayout: React.FC = () => {
                     ? 'bg-slate-900 text-white font-semibold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 font-medium'
                 }`}
-                title="Jornada Primaria y Transición 2"
+                title="Jornada Primaria (1° a 5°)"
               >
                 <Moon
                   className={`w-3.5 h-3.5 ${
                     selectedShift === 'afternoon' ? 'text-sky-300' : 'text-slate-500'
                   }`}
                 />
-                <span>Primaria y T2</span>
+                <span>Primaria</span>
               </button>
 
               <button
@@ -424,14 +429,14 @@ export const MainLayout: React.FC = () => {
                     ? 'bg-slate-900 text-white font-semibold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 font-medium'
                 }`}
-                title="Vista / Matriz Exclusiva de Transición 1 (Aislada)"
+                title="Jornada Transición (Transición 1: 07:00–12:00 / Transición 2: 12:30–17:30)"
               >
                 <Sparkles
                   className={`w-3.5 h-3.5 ${
                     selectedShift === 'transicion-1' ? 'text-purple-400' : 'text-slate-500'
                   }`}
                 />
-                <span>Transición 1</span>
+                <span>Transición</span>
               </button>
             </div>
 
@@ -724,7 +729,7 @@ export const MainLayout: React.FC = () => {
       <PublishScheduleModal
         isOpen={isPublishModalOpen}
         onClose={() => setIsPublishModalOpen(false)}
-        timeBlocks={getCurrentTimeBlocks()}
+        timeBlocks={modalTimeBlocks}
         teachers={teachers}
         academicPeriod={contextAcademicPeriod}
         academicWeek={currentAcademicWeek}

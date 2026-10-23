@@ -69,53 +69,55 @@ export const PublishScheduleModal: React.FC<PublishScheduleModalProps> = ({
   const [generatedHtml, setGeneratedHtml] = useState<string>('');
 
   useEffect(() => {
-    if (isOpen) {
-      const logo = localStorage.getItem('ievf_logo_data_url') || DEFAULT_LOGO_BASE64;
-      const snapshot = savePublicScheduleSnapshot(timeBlocks, teachers, academicPeriod, academicWeek);
-      const html = generateStandaloneScheduleHtml({
-        timeBlocks,
-        teachers,
-        academicPeriod,
-        academicWeek,
-        logoDataUrl: logo,
-        dayConfigs: snapshot.dayConfigs,
+    if (!isOpen) return;
+
+    const logo = localStorage.getItem('ievf_logo_data_url') || DEFAULT_LOGO_BASE64;
+    const snapshot = savePublicScheduleSnapshot(timeBlocks, teachers, academicPeriod, academicWeek);
+    const html = generateStandaloneScheduleHtml({
+      timeBlocks,
+      teachers,
+      academicPeriod,
+      academicWeek,
+      logoDataUrl: logo,
+      dayConfigs: snapshot.dayConfigs,
+    });
+    setGeneratedHtml(html);
+
+    let active = true;
+    setIsShortening(true);
+    setIsPublishingCloud(true);
+    shortenUrlExternal(cleanShortRouteUrl)
+      .then(async (shortRes) => {
+        const short = typeof shortRes === 'string' ? shortRes : shortRes?.shortUrl || cleanShortRouteUrl;
+        if (active) {
+          setShortenedUrl(short);
+        }
+        await publishScheduleToCloud(snapshot, short, 'vf');
+        if (active) {
+          const timestampStr = new Date().toLocaleString('es-CO', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          });
+          setLastPublishedAt(timestampStr);
+          setIsPublished(true);
+        }
+      })
+      .catch((err) => {
+        console.warn('[PublishScheduleModal] Auto-sync error:', err);
+      })
+      .finally(() => {
+        if (active) {
+          setIsShortening(false);
+          setIsPublishingCloud(false);
+        }
       });
-      setGeneratedHtml(html);
 
-      let active = true;
-      setIsShortening(true);
-      setIsPublishingCloud(true);
-      shortenUrlExternal(cleanShortRouteUrl)
-        .then(async (shortRes) => {
-          const short = typeof shortRes === 'string' ? shortRes : shortRes?.shortUrl || cleanShortRouteUrl;
-          if (active) {
-            setShortenedUrl(short);
-          }
-          await publishScheduleToCloud(snapshot, short, 'vf');
-          if (active) {
-            const timestampStr = new Date().toLocaleString('es-CO', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            });
-            setLastPublishedAt(timestampStr);
-            setIsPublished(true);
-          }
-        })
-        .catch((err) => {
-          console.warn('[PublishScheduleModal] Auto-sync error:', err);
-        })
-        .finally(() => {
-          if (active) {
-            setIsShortening(false);
-            setIsPublishingCloud(false);
-          }
-        });
-
-      return () => {
-        active = false;
-      };
-    }
-  }, [isOpen, timeBlocks, teachers, academicPeriod, academicWeek, cleanShortRouteUrl]);
+    return () => {
+      active = false;
+    };
+    // Solo ejecutar una vez al abrir el modal para evitar re-sincronizaciones en cascada
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

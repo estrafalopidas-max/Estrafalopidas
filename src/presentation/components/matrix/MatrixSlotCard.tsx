@@ -51,7 +51,7 @@ export function getFirstAndLastNameInitials(name: string | null | undefined): st
       : single[0].toUpperCase();
   }
 
-  return (words[0][0] + words[1][0]).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
 /**

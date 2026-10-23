@@ -318,7 +318,7 @@ const RAW_SEED_TEACHERS: Omit<UserEntity, 'allowedSubjects'>[] = [
     id: 't-m-isabel',
     email: 'maria.giraldo@ievillaflora.edu.co',
     displayName: 'María Isabel Giraldo Rojas',
-    shortName: 'María Giraldo',
+    shortName: 'Mª Isabel Giraldo',
     groupDirection: '06-01',
     role: 'teacher',
     documentId: '71234008',
@@ -512,7 +512,7 @@ const RAW_SEED_TEACHERS: Omit<UserEntity, 'allowedSubjects'>[] = [
     id: 't-alejandra',
     email: 'maria.perez@ievillaflora.edu.co',
     displayName: 'María Alejandra Pérez Pino',
-    shortName: 'María Pérez',
+    shortName: 'Alejandra Pérez',
     groupDirection: '10-01',
     role: 'teacher',
     documentId: '71234016',
@@ -604,27 +604,6 @@ const RAW_SEED_TEACHERS: Omit<UserEntity, 'allowedSubjects'>[] = [
       'g-1101',
       'g-1102',
     ],
-    maxWeeklyHours: 24,
-    isActive: true,
-    createdAt: '2026-01-15T00:00:00Z',
-    updatedAt: '2026-01-15T00:00:00Z',
-  },
-  {
-    id: 't-adriana-mier',
-    email: 'adriana.mier@ievillaflora.edu.co',
-    displayName: 'Adriana Lucía Mier Madrid',
-    shortName: 'Adriana Mier',
-    groupDirection: 'Sin asignación',
-    role: 'teacher',
-    documentId: '71234025',
-    phone: '3001001025',
-    subjects: [],
-    specialty: [],
-    assignedSubject: '',
-    subject: '',
-    academicLevel: 'bachillerato',
-    academicAssignmentStatus: 'pending_assignment',
-    assignedGradeIds: [],
     maxWeeklyHours: 24,
     isActive: true,
     createdAt: '2026-01-15T00:00:00Z',
@@ -883,11 +862,10 @@ export const BACHILLERATO_GRADES: GradeEntity[] = [
 ];
 
 export const TRANSICION_2_GRADES: GradeEntity[] = [
-  { id: 'g-trans-2', gradeLevel: 'Transición', groupNumber: '2', fullName: 'Transición 2', shift: 'afternoon', studentCount: 25, academicYear: 2026, defaultClassroomId: 'Aula P-101', isActive: true },
+  { id: 'g-trans-2', gradeLevel: 'Transición', groupNumber: '2', fullName: 'Transición 2', shift: 'transicion-1', studentCount: 25, academicYear: 2026, defaultClassroomId: 'Aula P-101', isActive: true },
 ];
 
 export const PRIMARIA_GRADES: GradeEntity[] = [
-  ...TRANSICION_2_GRADES,
   { id: 'g-101', gradeLevel: '1°', groupNumber: '1', fullName: '1.1', shift: 'afternoon', studentCount: 32, academicYear: 2026, defaultClassroomId: 'Aula 102', isActive: true },
   { id: 'g-102', gradeLevel: '1°', groupNumber: '2', fullName: '1.2', shift: 'afternoon', studentCount: 30, academicYear: 2026, defaultClassroomId: 'Aula 103', isActive: true },
   { id: 'g-201', gradeLevel: '2°', groupNumber: '1', fullName: '2.1', shift: 'afternoon', studentCount: 33, academicYear: 2026, defaultClassroomId: 'Aula 402', isActive: true },
@@ -903,6 +881,7 @@ export const PRIMARIA_GRADES: GradeEntity[] = [
 
 export const TRANSICION_1_GRADES: GradeEntity[] = [
   { id: 'g-trans-1', gradeLevel: 'Transición', groupNumber: '1', fullName: 'Transición 1', shift: 'transicion-1', studentCount: 26, academicYear: 2026, defaultClassroomId: 'Aula P-102', isActive: true },
+  ...TRANSICION_2_GRADES,
 ];
 
 export const SEED_GRADES: GradeEntity[] = [
@@ -942,6 +921,12 @@ export function reconcileBlocksWithOfficialRoster(blocks: TimeBlockEntity[]): Ti
   }
 
   const result = blocks.map((b) => {
+    const isTransicion =
+      b.gradeId === 'g-trans-1' ||
+      b.gradeId === 'g-trans-2' ||
+      b.gradeName === 'Transición 1' ||
+      b.gradeName === 'Transición 2';
+
     const isNovelty =
       b.block_type === 'novelty' ||
       Boolean(b.motivo_novedad) ||
@@ -949,27 +934,23 @@ export function reconcileBlocksWithOfficialRoster(blocks: TimeBlockEntity[]): Ti
       Boolean(b.subject && b.subject.toUpperCase().startsWith('NOVEDAD'));
 
     if (isNovelty) {
-      return b;
+      return isTransicion ? { ...b, shift: 'transicion-1' as const } : b;
     }
 
     const seedMatch = canonicalSeedMap.get(b.id);
-    if (seedMatch && (
-      b.period >= 7 ||
-      b.teacherId?.startsWith('t-docente-') ||
-      b.teacherId === 't-lizhet' ||
-      b.teacherId === 't-lorena-m' ||
-      b.teacherId === 't-paola' ||
-      b.teacherId === 't-sara' ||
-      b.teacherId === 't-javier' ||
-      b.teacherName?.startsWith('Docente Titular') ||
-      b.subject === 'Media Técnica' ||
-      b.subject === 'Plan Lector'
-    )) {
+    if (seedMatch) {
       return {
         ...b,
+        shift: seedMatch.shift,
+        startTime: seedMatch.startTime,
+        endTime: seedMatch.endTime,
         subject: seedMatch.subject,
         teacherId: seedMatch.teacherId,
-        teacherName: seedMatch.teacherName,
+        teacherName: getShortTeacherName(seedMatch.teacherId, seedMatch.teacherName),
+        gradeId: seedMatch.gradeId,
+        gradeName: seedMatch.gradeName,
+        classroomId: seedMatch.classroomId,
+        classroomName: seedMatch.classroomName,
       };
     }
 
@@ -984,15 +965,16 @@ export function reconcileBlocksWithOfficialRoster(blocks: TimeBlockEntity[]): Ti
       }
       return {
         ...b,
+        shift: isTransicion ? ('transicion-1' as const) : b.shift,
         subject: subj,
         teacherName: shortName,
       };
     }
 
-    return b;
+    return isTransicion ? { ...b, shift: 'transicion-1' as const } : b;
   });
 
-  // Ensure Transición 1 and Transición 2 blocks exist
+  // Ensure all canonical 2026 blocks exist
   const existingIds = new Set(result.map((b) => b.id));
   if (Array.isArray(excelSeedData)) {
     (excelSeedData as TimeBlockEntity[]).forEach((seedBlock) => {
@@ -1050,11 +1032,12 @@ SEED_TEACHERS.forEach((teacher) => {
   }
 });
 
-export function ensureSeedDataLoaded() {
-  const isV19 = localStorage.getItem('ievf_seed_version') === 'v19';
+export const OFFICIAL_2026_SEED_VERSION = 'v2026_definitiva';
 
-  if (!isV19 || !localStorage.getItem('ievf_users_v1')) {
-    // Preserve custom user colors if any exist in localStorage
+export function ensureSeedDataLoaded() {
+  const isCurrentVersion = localStorage.getItem('ievf_seed_version') === OFFICIAL_2026_SEED_VERSION;
+
+  if (!isCurrentVersion || !localStorage.getItem('ievf_users_v1')) {
     let existingColorMap = new Map<string, string>();
     try {
       const oldRaw = localStorage.getItem('ievf_users_v1');
@@ -1078,19 +1061,54 @@ export function ensureSeedDataLoaded() {
       return t;
     });
     localStorage.setItem('ievf_users_v1', JSON.stringify(mergedTeachers));
+  } else {
+    try {
+      const existingRaw = localStorage.getItem('ievf_users_v1');
+      if (existingRaw) {
+        const parsed = JSON.parse(existingRaw);
+        if (Array.isArray(parsed)) {
+          let changed = false;
+          const filtered = parsed
+            .filter((u: any) => {
+              const rem =
+                u?.id === 't-adriana-mier' ||
+                String(u?.displayName || '').toLowerCase().includes('adriana mier') ||
+                String(u?.displayName || '').toLowerCase().includes('adriana luc');
+              if (rem) changed = true;
+              return !rem;
+            })
+            .map((u: any) => {
+              if (u?.id === 't-m-isabel' && u.shortName !== 'Mª Isabel Giraldo') {
+                changed = true;
+                return { ...u, shortName: 'Mª Isabel Giraldo' };
+              }
+              if (u?.id === 't-alejandra' && u.shortName !== 'Alejandra Pérez') {
+                changed = true;
+                return { ...u, shortName: 'Alejandra Pérez' };
+              }
+              return u;
+            });
+          if (changed) {
+            localStorage.setItem('ievf_users_v1', JSON.stringify(filtered));
+          }
+        }
+      }
+    } catch {}
   }
 
-  if (!isV19 || !localStorage.getItem('ievf_classrooms_v1')) {
+  if (!isCurrentVersion || !localStorage.getItem('ievf_classrooms_v1')) {
     localStorage.setItem('ievf_classrooms_v1', JSON.stringify(SEED_CLASSROOMS));
   }
-  if (!isV19 || !localStorage.getItem('ievf_grades_v1')) {
+  if (!isCurrentVersion || !localStorage.getItem('ievf_grades_v1')) {
     localStorage.setItem('ievf_grades_v1', JSON.stringify(SEED_GRADES));
   }
-  if (!isV19 || !localStorage.getItem('ievf_absence_requests_v1')) {
+  if (!isCurrentVersion || !localStorage.getItem('ievf_absence_requests_v1')) {
     localStorage.setItem('ievf_absence_requests_v1', JSON.stringify(SEED_ABSENCE_REQUESTS));
   }
 
-  if (!isV19) {
+  if (!isCurrentVersion) {
+    const seedBlocks = generateSeedBlocks();
+    localStorage.setItem('ievf_baseline_2026_v1', JSON.stringify(seedBlocks));
     try {
       const existingRaw = localStorage.getItem('villaFloraMatrix') || localStorage.getItem('ievf_time_blocks_v1');
       if (existingRaw) {
@@ -1100,22 +1118,20 @@ export function ensureSeedDataLoaded() {
           localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(reconciled));
           localStorage.setItem('villaFloraMatrix', JSON.stringify(reconciled));
         } else {
-          const seedBlocks = generateSeedBlocks();
           localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(seedBlocks));
           localStorage.setItem('villaFloraMatrix', JSON.stringify(seedBlocks));
         }
       } else {
-        const seedBlocks = generateSeedBlocks();
         localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(seedBlocks));
         localStorage.setItem('villaFloraMatrix', JSON.stringify(seedBlocks));
       }
     } catch {
-      const seedBlocks = generateSeedBlocks();
       localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(seedBlocks));
       localStorage.setItem('villaFloraMatrix', JSON.stringify(seedBlocks));
     }
   } else if (!localStorage.getItem('ievf_time_blocks_v1') && !localStorage.getItem('villaFloraMatrix')) {
     const seedBlocks = generateSeedBlocks();
+    localStorage.setItem('ievf_baseline_2026_v1', JSON.stringify(seedBlocks));
     localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(seedBlocks));
     localStorage.setItem('villaFloraMatrix', JSON.stringify(seedBlocks));
   } else if (!localStorage.getItem('villaFloraMatrix')) {
@@ -1125,5 +1141,18 @@ export function ensureSeedDataLoaded() {
     }
   }
 
-  localStorage.setItem('ievf_seed_version', 'v19');
+  // Asegurar que los bloques en caché reflejen los nombres abreviados actualizados (Mª Isabel Giraldo y Alejandra Pérez)
+  try {
+    for (const key of ['ievf_time_blocks_v1', 'villaFloraMatrix', 'ievf_baseline_2026_v1']) {
+      const rawBlocks = localStorage.getItem(key);
+      if (rawBlocks && (rawBlocks.includes('María Giraldo') || rawBlocks.includes('"Isabel Giraldo"') || rawBlocks.includes('María Pérez'))) {
+        const updatedRaw = rawBlocks
+          .replace(/"teacherName"\s*:\s*"(María Giraldo|Isabel Giraldo)"/g, '"teacherName":"Mª Isabel Giraldo"')
+          .replace(/"teacherName"\s*:\s*"María Pérez"/g, '"teacherName":"Alejandra Pérez"');
+        localStorage.setItem(key, updatedRaw);
+      }
+    }
+  } catch {}
+
+  localStorage.setItem('ievf_seed_version', OFFICIAL_2026_SEED_VERSION);
 }

@@ -11,6 +11,7 @@ export interface MatrixPeriodConfig {
   period: number;
   ordinal: string;
   time: string;
+  secondaryTime?: string;
   label?: string;
 }
 
@@ -43,7 +44,8 @@ function formatMinutesToTimeString(minutes: number): string {
 }
 
 export interface PreJornadaConfig {
-  time: string; // e.g. '11:30 - 12:10' or '12:00 - 12:45'
+  time: string;
+  secondaryTime?: string;
   label: string; // 'ATENCIÓN A PADRES'
   description: string;
 }
@@ -51,91 +53,54 @@ export interface PreJornadaConfig {
 export interface MatrixScheduleConfig {
   periods: MatrixPeriodConfig[];
   breakTime: string;
+  secondaryBreakTime?: string;
   breakLabel: string;
   preJornada?: PreJornadaConfig | null;
 }
 
-/**
- * Dynamic schedule time generator.
- * Bachillerato:
- * - Standard mode: 55-minute blocks starting at 06:10 AM, with 30-min break (08:55 - 09:25) and dismissal strictly at 12:10 PM.
- * - Meeting mode: Block 1 is forced to 50 minutes (06:10 - 07:00) for 'ATENCIÓN A PADRES'.
- *   From Block 2 (07:00) onwards, standard 55-minute blocks per class without cuts, break 08:50 - 09:25 (35 min), dismissing at 12:10 PM.
- * Primaria y Transición 2:
- * - Standard mode: Exactly 5 blocks of 55 minutes starting at 12:30 PM, break 15:15 - 15:45, ending at 17:35.
- * - Event mode: Starts at 1:00 PM (13:00), break 15:45 - 16:15, ending at 18:05.
- * - Meeting mode: Injects pre-jornada row (11:30 - 12:10) 'ATENCIÓN A PADRES' without altering the 5 class hours.
- * Transición 1:
- * - Isolated view/matrix. Standard 5 teaching blocks.
- * - Meeting mode: Injects pre-jornada row (12:00 - 12:45) 'ATENCIÓN A PADRES'.
- */
 export function generateMatrixSchedule(
   shift: ShiftType,
   isMeetingDay: boolean = false,
   isEventDay: boolean = false
 ): MatrixScheduleConfig {
   if (shift === 'transicion-1') {
-    // Transición 1: Vista / Matriz aislada
+    // Transición Unificada: T1 (07:00 a 12:00) y T2 (12:30 a 17:30)
     const preJornada: PreJornadaConfig | null = isMeetingDay
       ? {
-          time: '12:00 - 12:45',
+          time: '06:10 - 07:00',
+          secondaryTime: '11:30 - 12:10',
           label: 'ATENCIÓN A PADRES',
-          description: 'Franja institucional de excepción (12:00 a 12:45) • Transición 1',
+          description: 'Franja institucional previa a la jornada lectiva • T1 (06:10 a 07:00) y T2 (11:30 a 12:10)',
         }
       : null;
 
-    const startMinutes = isMeetingDay ? 12 * 60 + 45 : 12 * 60 + 30; // 12:45 o 12:30
-    let currentMinute = startMinutes;
-    const periods: MatrixPeriodConfig[] = [];
+    const periods: MatrixPeriodConfig[] = [
+      { period: 1, ordinal: '1ª Hora', time: '07:00 - 07:50', secondaryTime: '12:30 - 13:20', label: '1ª Hora' },
+      { period: 2, ordinal: '2ª Hora', time: '07:50 - 08:40', secondaryTime: '13:20 - 14:10', label: '2ª Hora' },
+      { period: 3, ordinal: '3ª Hora', time: '08:40 - 09:30', secondaryTime: '14:10 - 15:00', label: '3ª Hora' },
+      { period: 4, ordinal: '4ª Hora', time: '10:20 - 11:10', secondaryTime: '15:50 - 16:40', label: '4ª Hora' },
+      { period: 5, ordinal: '5ª Hora', time: '11:10 - 12:00', secondaryTime: '16:40 - 17:30', label: '5ª Hora' },
+    ];
 
-    // Bloques 1 a 3 (55 minutos cada uno)
-    for (let p = 1; p <= 3; p++) {
-      const start = currentMinute;
-      const end = start + 55;
-      periods.push({
-        period: p,
-        ordinal: `${p}ª Hora`,
-        time: `${formatMinutesToTimeString(start)} - ${formatMinutesToTimeString(end)}`,
-        label: `${p}ª Hora`,
-      });
-      currentMinute = end;
-    }
-
-    // Descanso pedagógico (30 minutos)
-    const breakStart = currentMinute;
-    const breakEnd = breakStart + 30;
-    const breakTime = `${formatMinutesToTimeString(breakStart)} - ${formatMinutesToTimeString(breakEnd)}`;
-    currentMinute = breakEnd;
-
-    // Bloques 4 y 5 (Tope en 5ª hora)
-    for (let p = 4; p <= 5; p++) {
-      const start = currentMinute;
-      const end = start + 55;
-      periods.push({
-        period: p,
-        ordinal: `${p}ª Hora`,
-        time: `${formatMinutesToTimeString(start)} - ${formatMinutesToTimeString(end)}`,
-        label: `${p}ª Hora`,
-      });
-      currentMinute = end;
-    }
+    const breakTime = '09:30 - 10:20';
+    const secondaryBreakTime = '15:00 - 15:50';
 
     return {
       periods,
       breakTime,
-      breakLabel: `Descanso Pedagógico y Alimentación Escolar (de ${breakTime.replace(' - ', ' a ')})`,
+      secondaryBreakTime,
+      breakLabel: 'Descanso Pedagógico y Alimentación Escolar • T1 (09:30 a 10:20) / T2 (15:00 a 15:50)',
       preJornada,
     };
   }
 
   if (shift === 'afternoon') {
-    // Primaria y Transición 2
-    // Inyección condicional Pre-Jornada de 11:30 a 12:10 si isMeetingDay está activo
+    // Primaria (1° a 5°)
     const preJornada: PreJornadaConfig | null = isMeetingDay
       ? {
           time: '11:30 - 12:10',
           label: 'ATENCIÓN A PADRES',
-          description: 'Franja institucional previa a la jornada lectiva (11:30 a 12:10) • Primaria y Transición 2',
+          description: 'Franja institucional previa a la jornada lectiva (11:30 a 12:10) • Primaria',
         }
       : null;
 
@@ -368,7 +333,7 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
   onToggleSelect,
 }) => {
   const isMorning = shift === 'morning';
-  const { periods, breakTime, breakLabel, preJornada } = useMemo(
+  const { periods, breakTime, secondaryBreakTime, breakLabel, preJornada } = useMemo(
     () => generateMatrixSchedule(shift, isMeetingDay, isEventDay),
     [shift, isMeetingDay, isEventDay]
   );
@@ -613,7 +578,8 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
     }
   };
 
-  const isBreakActive = isPeriodActive(breakTime);
+  const isBreakActive =
+    isPeriodActive(breakTime) || (secondaryBreakTime ? isPeriodActive(secondaryBreakTime) : false);
 
   const currentHourSlotLabel = useMemo(() => {
     return isMeetingDay ? 'Horario B' : 'Horario A';
@@ -631,6 +597,162 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
     );
   }
 
+  const isTransicion = shift === 'transicion-1';
+
+  const renderCornerHeaderCell = (isFirstCol: boolean, keySuffix: string) => (
+    <div
+      key={`corner-header-${keySuffix}`}
+      className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky top-0 ${
+        isFirstCol ? 'left-0 z-40' : 'z-20'
+      } backdrop-blur-xs border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+        isHoliday
+          ? 'bg-red-600 text-white font-bold border-red-700'
+          : 'bg-slate-200/95 border-gray-300'
+      }`}
+    >
+      <div className="flex items-center space-x-1">
+        <Clock className={`w-3.5 h-3.5 ${isHoliday ? 'text-white' : 'text-villa-blue-light'}`} />
+        <span className={`font-semibold text-xs ${isHoliday ? 'text-white font-bold' : 'text-gray-900'}`}>
+          {isHoliday
+            ? 'Día Festivo'
+            : shift === 'morning'
+            ? isMeetingDay
+              ? 'Atención Padres'
+              : 'Bachillerato'
+            : shift === 'transicion-1'
+            ? 'Transición'
+            : isMeetingDay
+            ? 'Primaria'
+            : isEventDay
+            ? 'Evento (1:00 PM)'
+            : 'Primaria'}
+        </span>
+      </div>
+      {dayHeaderLabel && (
+        <span
+          className={`text-[10px] leading-tight font-bold mt-0.5 ${
+            isHoliday ? 'text-white' : 'text-villa-blue-dark'
+          }`}
+        >
+          {dayHeaderLabel}
+        </span>
+      )}
+      {isHoliday ? (
+        <span className="text-[10px] font-extrabold uppercase tracking-wide mt-0.5 bg-red-700 text-white px-2 py-0.5 rounded-full shadow-2xs">
+          Bloqueado
+        </span>
+      ) : (
+        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide mt-0.5 truncate max-w-full">
+          {currentHourSlotLabel}
+        </span>
+      )}
+    </div>
+  );
+
+  const renderGradeHeaderCell = (grade: GradeEntity) => {
+    const isT1 = grade.id === 'g-trans-1' || grade.fullName === 'Transición 1';
+    const isT2 = grade.id === 'g-trans-2' || grade.fullName === 'Transición 2';
+    const baseClassroom = !grade.defaultClassroomId
+      ? 'Aula Base'
+      : grade.defaultClassroomId.trim().toUpperCase() === 'AULA ROTA' ||
+        grade.defaultClassroomId.trim().toUpperCase() === 'ROTA'
+      ? 'Aula (ROTACIÓN)'
+      : grade.defaultClassroomId;
+
+    return (
+      <div
+        key={grade.id}
+        className="py-2.5 px-2 border-r border-b border-slate-200 sticky top-0 z-20 bg-slate-100/95 backdrop-blur-xs shadow-2xs flex flex-col items-center justify-center text-center"
+      >
+        <span className="text-lg font-bold text-gray-900 tracking-tight leading-tight">
+          {grade.fullName}
+        </span>
+        <span className="text-xs text-gray-500 font-medium mt-0.5 truncate block max-w-full">
+          {isT1
+            ? `${baseClassroom} • 07:00 - 12:00`
+            : isT2
+            ? `${baseClassroom} • 12:30 - 17:30`
+            : baseClassroom}
+        </span>
+      </div>
+    );
+  };
+
+  const renderGradeCell = (grade: GradeEntity, gradeIdx: number, p: MatrixPeriodConfig, isCurrentSlot: boolean) => {
+    const block =
+      timeBlocks.find((b) => b.gradeId === grade.id && b.period === p.period) || null;
+    const pending = block
+      ? pendingRequests.find((r) => r.teacher_id === block.teacherId) || null
+      : null;
+    const droppableId = createSlotDroppableId(grade, p.period);
+
+    const hasAssignedSubject = Boolean(
+      block &&
+      block.status !== 'cancelled' &&
+      (
+        block.block_type === 'novelty' ||
+        Boolean(block.motivo_novedad) ||
+        (
+          block.subject &&
+          block.subject.trim() !== '' &&
+          block.block_type !== 'exit' &&
+          !block.subject.toUpperCase().includes('SALIDA') &&
+          !block.subject.toUpperCase().includes('NO DISPONIBLE') &&
+          !block.subject.toUpperCase().includes('SIN ASIGNACI')
+        )
+      )
+    );
+    const isSeniorHigh =
+      grade.fullName.startsWith('10') ||
+      grade.fullName.startsWith('11') ||
+      grade.gradeLevel === '10°' ||
+      grade.gradeLevel === '11°';
+    const isBeyondJornada = shift === 'morning' && p.period > 6 && !isSeniorHigh;
+    const isBlocked = !hasAssignedSubject && isBeyondJornada;
+    const isThisBlockDragging = Boolean(draggedBlock && block && draggedBlock.id === block.id);
+
+    return (
+      <div
+        key={grade.id}
+        className={`p-1.5 border-r border-b transition-colors min-h-[135px] flex flex-col justify-stretch ${
+          isCurrentSlot
+            ? 'bg-yellow-50/80 border-b-amber-300/60 shadow-inner'
+            : 'bg-white border-slate-200'
+        }`}
+      >
+        <MatrixCell
+          grade={grade}
+          period={p.period}
+          block={block}
+          pending={pending}
+          officialSubjects={officialSubjects}
+          allTimeBlocks={timeBlocks}
+          draggedBlock={draggedBlock}
+          droppableId={droppableId}
+          isThisBlockDragging={isThisBlockDragging}
+          isBlocked={isBlocked}
+          isHoliday={isHoliday}
+          isSelected={Boolean(
+            (selectedCellIds && (selectedCellIds.has(droppableId) || (block && selectedCellIds.has(block.id)))) ||
+            (selectedCells && (selectedCells.includes(droppableId) || (block && selectedCells.includes(block.id))))
+          )}
+          gradeIndex={gradeIdx}
+          periodIndex={periods.findIndex((item) => item.period === p.period)}
+          onSelectSlot={onSelectSlot}
+          onDrop={handleSlotDrop}
+          onDragStart={handleDragStart}
+          onDrag={handleDrag}
+          onDragEnd={handleDragEnd}
+          updateGhostPosition={updateGhostPosition}
+          onCellClick={onCellClick}
+          onTrashClick={onTrashClick}
+          onEmptyClick={onEmptyClick}
+          onToggleSelect={onToggleSelect}
+        />
+      </div>
+    );
+  };
+
   return (
     <div className="w-full overflow-x-auto overflow-y-auto max-h-[calc(100vh-175px)] rounded-2xl border border-slate-200 bg-white shadow-xs touch-pan-x antialiased relative">
       {/* Dynamic Full-Width CSS Grid - Consumes 100% of 24" screens without dead margins */}
@@ -639,7 +761,9 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
         onDragOver={handleContainerDragOver}
         className="w-full min-w-full grid text-left border-collapse transition-transform origin-top-left relative"
         style={{
-          gridTemplateColumns: `8.5rem repeat(${grades.length}, minmax(110px, 1fr))`,
+          gridTemplateColumns: isTransicion
+            ? grades.map(() => '8.5rem minmax(140px, 1fr)').join(' ')
+            : `8.5rem repeat(${grades.length}, minmax(110px, 1fr))`,
           transform: `scale(${zoomLevel / 100})`,
           transformOrigin: 'top left',
           width: zoomLevel < 100 ? `${(100 / (zoomLevel / 100))}%` : '100%',
@@ -666,125 +790,170 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
           </div>
         )}
         {/* ROW 1: HEADER (Corner Axis + Grade Headers) */}
-        {/* Top-Left Corner Cell: Sticky Top & Left (z-40) */}
-        <div
-          className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky top-0 left-0 z-40 backdrop-blur-xs border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
-            isHoliday
-              ? 'bg-red-600 text-white font-bold border-red-700'
-              : 'bg-slate-200/95 border-gray-300'
-          }`}
-        >
-          <div className="flex items-center space-x-1">
-            <Clock className={`w-3.5 h-3.5 ${isHoliday ? 'text-white' : 'text-villa-blue-light'}`} />
-            <span className={`font-semibold text-xs ${isHoliday ? 'text-white font-bold' : 'text-gray-900'}`}>
-              {isHoliday
-                ? 'Día Festivo'
-                : shift === 'morning'
-                ? isMeetingDay
-                  ? 'Atención Padres'
-                  : 'Bachillerato'
-                : shift === 'transicion-1'
-                ? 'Transición 1'
-                : isMeetingDay
-                ? 'Primaria y T2'
-                : isEventDay
-                ? 'Evento (1:00 PM)'
-                : 'Primaria (55m)'}
-            </span>
-          </div>
-          {dayHeaderLabel && (
-            <span
-              className={`text-[10px] leading-tight font-bold mt-0.5 ${
-                isHoliday ? 'text-white' : 'text-villa-blue-dark'
-              }`}
-            >
-              {dayHeaderLabel}
-            </span>
-          )}
-          {isHoliday ? (
-            <span className="text-[10px] font-extrabold uppercase tracking-wide mt-0.5 bg-red-700 text-white px-2 py-0.5 rounded-full shadow-2xs">
-              Bloqueado
-            </span>
-          ) : (
-            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide mt-0.5 truncate max-w-full">
-              {currentHourSlotLabel}
-            </span>
-          )}
-        </div>
+        {isTransicion ? (
+          grades.map((grade, idx) => (
+            <React.Fragment key={`header-pair-${grade.id}`}>
+              {renderCornerHeaderCell(idx === 0, grade.id)}
+              {renderGradeHeaderCell(grade)}
+            </React.Fragment>
+          ))
+        ) : (
+          <>
+            {renderCornerHeaderCell(true, 'main')}
+            {grades.map((grade) => renderGradeHeaderCell(grade))}
+          </>
+        )}
 
-        {/* Column Headers (Grades / Classrooms) - Sticky Top (z-20) */}
-        {grades.map((grade) => (
-          <div
-            key={grade.id}
-            className="py-2.5 px-2 border-r border-b border-slate-200 sticky top-0 z-20 bg-slate-100/95 backdrop-blur-xs shadow-2xs flex flex-col items-center justify-center text-center"
-          >
-            <span className="text-lg font-bold text-gray-900 tracking-tight leading-tight">
-              {grade.fullName}
-            </span>
-            <span className="text-xs text-gray-500 font-medium mt-0.5 truncate block max-w-full">
-              {!grade.defaultClassroomId
-                ? 'Aula Base'
-                : grade.defaultClassroomId.trim().toUpperCase() === 'AULA ROTA' ||
-                  grade.defaultClassroomId.trim().toUpperCase() === 'ROTA'
-                ? 'Aula (ROTACIÓN)'
-                : grade.defaultClassroomId}
-            </span>
-          </div>
-        ))}
-
-        {/* PRE-JORNADA CONDITIONAL ROW (Atención a Padres: Primaria/T2 o Transición 1) */}
+        {/* PRE-JORNADA CONDITIONAL ROW (Atención a Padres: Primaria o Transición) */}
         {preJornada && (
-          <React.Fragment key="pre-jornada-row">
-            {/* Sticky Left Time Column */}
-            <div
-              className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2.5 transition-colors ${
-                isPeriodActive(preJornada.time)
-                  ? 'bg-amber-100 border-l-4 border-l-villa-magenta border-r-amber-400 border-b-amber-400 shadow-inner'
-                  : 'bg-amber-50/90 border-r border-b border-amber-300'
-              }`}
-            >
-              <span className="text-sm font-semibold text-gray-900 tracking-tight whitespace-nowrap">
-                {preJornada.time.replace(' - ', ' a ')}
-              </span>
-              <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide mt-0.5">
-                Pre-Jornada
-              </span>
-              {isPeriodActive(preJornada.time) && (
-                <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
-                  En curso
+          isTransicion ? (
+            <React.Fragment key="pre-jornada-row-transicion">
+              {grades.map((grade, idx) => {
+                const isT2 = grade.id === 'g-trans-2' || grade.fullName === 'Transición 2';
+                const slotTime = isT2 && preJornada.secondaryTime ? preJornada.secondaryTime : preJornada.time;
+                const activeNow = isPeriodActive(slotTime);
+                return (
+                  <React.Fragment key={`pre-jornada-${grade.id}`}>
+                    <div
+                      className={`w-36 min-w-[8.5rem] max-w-[8.5rem] ${
+                        idx === 0 ? 'sticky left-0 z-30' : ''
+                      } border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+                        activeNow
+                          ? 'bg-amber-100 border-l-4 border-l-villa-magenta border-r-amber-400 border-b-amber-400 shadow-inner'
+                          : 'bg-amber-50/90 border-r border-b border-amber-300'
+                      }`}
+                    >
+                      <span className="text-sm font-semibold text-gray-900 tracking-tight whitespace-nowrap">
+                        {slotTime.replace(' - ', ' a ')}
+                      </span>
+                      <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide mt-0.5">
+                        Pre-Jornada
+                      </span>
+                      {activeNow && (
+                        <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                          En curso
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`border-r border-b min-h-[95px] flex flex-col items-center justify-center p-3 text-center select-none shadow-inner transition-colors ${
+                        activeNow
+                          ? 'bg-amber-100/90 border-amber-300'
+                          : 'bg-amber-50/70 border-amber-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Users className="w-5 h-5 text-amber-800" />
+                        <span className="text-base sm:text-lg font-bold text-gray-900 tracking-wider uppercase">
+                          {preJornada.label}
+                        </span>
+                        {activeNow && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                            En curso
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-semibold text-amber-900/80 max-w-lg">
+                        Franja institucional de excepción ({slotTime.replace(' - ', ' a ')}) • Sin asignación de clases ni sustituciones
+                      </p>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </React.Fragment>
+          ) : (
+            <React.Fragment key="pre-jornada-row">
+              {/* Sticky Left Time Column */}
+              <div
+                className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+                  isPeriodActive(preJornada.time)
+                    ? 'bg-amber-100 border-l-4 border-l-villa-magenta border-r-amber-400 border-b-amber-400 shadow-inner'
+                    : 'bg-amber-50/90 border-r border-b border-amber-300'
+                }`}
+              >
+                <span className="text-sm font-semibold text-gray-900 tracking-tight whitespace-nowrap">
+                  {preJornada.time.replace(' - ', ' a ')}
                 </span>
-              )}
-            </div>
-
-            {/* Fused Transversal Cell Spanning Across All Columns */}
-            <div
-              style={{ gridColumn: `span ${grades.length}` }}
-              className={`border-r border-b min-h-[95px] flex flex-col items-center justify-center p-3 text-center select-none shadow-inner transition-colors ${
-                isPeriodActive(preJornada.time)
-                  ? 'bg-amber-100/90 border-amber-300'
-                  : 'bg-amber-50/70 border-amber-200'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Users className="w-5 h-5 text-amber-800" />
-                <span className="text-base sm:text-lg font-bold text-gray-900 tracking-wider uppercase">
-                  {preJornada.label}
+                <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide mt-0.5">
+                  Pre-Jornada
                 </span>
                 {isPeriodActive(preJornada.time) && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                  <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
                     En curso
                   </span>
                 )}
               </div>
-              <p className="text-xs font-semibold text-amber-900/80 max-w-lg">
-                {preJornada.description} • Sin asignación de clases ni sustituciones
-              </p>
-            </div>
-          </React.Fragment>
+
+              {/* Fused Transversal Cell Spanning Across All Columns */}
+              <div
+                style={{ gridColumn: `span ${grades.length}` }}
+                className={`border-r border-b min-h-[95px] flex flex-col items-center justify-center p-3 text-center select-none shadow-inner transition-colors ${
+                  isPeriodActive(preJornada.time)
+                    ? 'bg-amber-100/90 border-amber-300'
+                    : 'bg-amber-50/70 border-amber-200'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Users className="w-5 h-5 text-amber-800" />
+                  <span className="text-base sm:text-lg font-bold text-gray-900 tracking-wider uppercase">
+                    {preJornada.label}
+                  </span>
+                  {isPeriodActive(preJornada.time) && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                      En curso
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs font-semibold text-amber-900/80 max-w-lg">
+                  {preJornada.description} • Sin asignación de clases ni sustituciones
+                </p>
+              </div>
+            </React.Fragment>
+          )
         )}
 
         {/* PERIODS 1, 2, 3 */}
         {firstHalf.map((p) => {
+          if (isTransicion) {
+            return (
+              <React.Fragment key={p.period}>
+                {grades.map((grade, gradeIdx) => {
+                  const isT2 = grade.id === 'g-trans-2' || grade.fullName === 'Transición 2';
+                  const slotTime = isT2 && p.secondaryTime ? p.secondaryTime : p.time;
+                  const [startTime, endTime] = slotTime.split(' - ');
+                  const isCurrent = isPeriodActive(slotTime);
+
+                  return (
+                    <React.Fragment key={`${p.period}-${grade.id}`}>
+                      <div
+                        className={`w-36 min-w-[8.5rem] max-w-[8.5rem] ${
+                          gradeIdx === 0 ? 'sticky left-0 z-30' : ''
+                        } border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+                          isCurrent
+                            ? 'bg-yellow-50 border-l-4 border-l-villa-magenta border-r-amber-300 border-b-amber-300 shadow-inner ring-1 ring-amber-300/40'
+                            : 'bg-slate-100 border-gray-300'
+                        }`}
+                      >
+                        <div className="text-base font-bold text-gray-900 leading-tight">
+                          {p.ordinal}
+                        </div>
+                        <div className="text-sm font-medium text-gray-600 whitespace-nowrap mt-0.5">
+                          de {startTime} a {endTime}
+                        </div>
+                        {isCurrent && (
+                          <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                            En curso
+                          </span>
+                        )}
+                      </div>
+                      {renderGradeCell(grade, gradeIdx, p, isCurrent)}
+                    </React.Fragment>
+                  );
+                })}
+              </React.Fragment>
+            );
+          }
+
           const [startTime, endTime] = p.time.split(' - ');
           const isCurrent = isPeriodActive(p.time);
 
@@ -792,13 +961,13 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
             <React.Fragment key={p.period}>
               {/* Sticky First Column: Period & Hour (z-30) */}
               <div
-                className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2.5 transition-colors ${
+                className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
                   isCurrent
                     ? 'bg-yellow-50 border-l-4 border-l-villa-magenta border-r-amber-300 border-b-amber-300 shadow-inner ring-1 ring-amber-300/40'
                     : 'bg-slate-100 border-gray-300'
                 }`}
               >
-                <div className="text-lg font-bold text-gray-900 leading-tight">
+                <div className="text-base font-bold text-gray-900 leading-tight">
                   {p.ordinal}
                 </div>
                 <div className="text-sm font-medium text-gray-600 whitespace-nowrap mt-0.5">
@@ -811,149 +980,164 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
                 )}
               </div>
 
-            {/* Droppable data cells for each grade OR Fused Transversal Row 1 on Meeting Day */}
-            {isMeetingDay && isMorning && p.period === 1 ? (
-              <div
-                style={{ gridColumn: `span ${grades.length}` }}
-                className={`border-r border-b min-h-[135px] flex flex-col items-center justify-center p-4 text-center select-none shadow-inner transition-colors ${
-                  isCurrent
-                    ? 'bg-amber-100/90 border-amber-300'
-                    : 'bg-gray-200 border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Users className="w-5 h-5 text-gray-700" />
-                  <span className="text-base sm:text-lg font-bold text-gray-900 tracking-wider uppercase">
-                    ATENCIÓN A PADRES
-                  </span>
-                  {isCurrent && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+              {/* Droppable data cells for each grade OR Fused Transversal Row 1 on Meeting Day */}
+              {isMeetingDay && isMorning && p.period === 1 ? (
+                <div
+                  style={{ gridColumn: `span ${grades.length}` }}
+                  className={`border-r border-b min-h-[135px] flex flex-col items-center justify-center p-4 text-center select-none shadow-inner transition-colors ${
+                    isCurrent
+                      ? 'bg-amber-100/90 border-amber-300'
+                      : 'bg-gray-200 border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <Users className="w-5 h-5 text-gray-700" />
+                    <span className="text-base sm:text-lg font-bold text-gray-900 tracking-wider uppercase">
+                      ATENCIÓN A PADRES
+                    </span>
+                    {isCurrent && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                        En curso
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-gray-600 max-w-xl">
+                    Franja institucional reservada para atención personalizada a padres de familia y acudientes (06:10 - 07:00) • Sin asignación de clases.
+                  </p>
+                </div>
+              ) : (
+                grades.map((grade, gradeIdx) => renderGradeCell(grade, gradeIdx, p, isCurrent))
+              )}
+            </React.Fragment>
+          );
+        })}
+
+        {/* HORIZONTAL PEDAGOGICAL BREAK ROW (Receso Escolar) */}
+        {isTransicion ? (
+          grades.map((grade, idx) => {
+            const isT2 = grade.id === 'g-trans-2' || grade.fullName === 'Transición 2';
+            const gradeBreakTime = isT2 && secondaryBreakTime ? secondaryBreakTime : breakTime;
+            const [gbStart, gbEnd] = gradeBreakTime.split(' - ');
+            const activeBreak = isPeriodActive(gradeBreakTime);
+
+            return (
+              <React.Fragment key={`break-${grade.id}`}>
+                <div
+                  className={`w-36 min-w-[8.5rem] max-w-[8.5rem] ${
+                    idx === 0 ? 'sticky left-0 z-30' : ''
+                  } border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+                    activeBreak
+                      ? 'bg-amber-100 border-l-4 border-l-villa-magenta border-r-amber-400 border-b-amber-400 shadow-inner'
+                      : 'bg-amber-100 border-r border-b border-amber-300'
+                  }`}
+                >
+                  <div className="text-base font-bold text-amber-950 leading-tight">Receso</div>
+                  <div className="text-sm font-medium text-amber-800 whitespace-nowrap mt-0.5">
+                    de {gbStart} a {gbEnd}
+                  </div>
+                  {activeBreak && (
+                    <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
                       En curso
                     </span>
                   )}
                 </div>
-                <p className="text-xs font-semibold text-gray-600 max-w-xl">
-                  Franja institucional reservada para atención personalizada a padres de familia y acudientes (06:10 - 07:00) • Sin asignación de clases.
-                </p>
-              </div>
-            ) : (
-              grades.map((grade, gradeIdx) => {
-                const block =
-                  timeBlocks.find((b) => b.gradeId === grade.id && b.period === p.period) || null;
-                const pending = block
-                  ? pendingRequests.find((r) => r.teacher_id === block.teacherId) || null
-                  : null;
-                const droppableId = createSlotDroppableId(grade, p.period);
-
-                const hasAssignedSubject = Boolean(
-                  block &&
-                  block.status !== 'cancelled' &&
-                  (
-                    block.block_type === 'novelty' ||
-                    Boolean(block.motivo_novedad) ||
-                    (
-                      block.subject &&
-                      block.subject.trim() !== '' &&
-                      block.block_type !== 'exit' &&
-                      !block.subject.toUpperCase().includes('SALIDA') &&
-                      !block.subject.toUpperCase().includes('NO DISPONIBLE') &&
-                      !block.subject.toUpperCase().includes('SIN ASIGNACI')
-                    )
-                  )
-                );
-                const isSeniorHigh =
-                  grade.fullName.startsWith('10') ||
-                  grade.fullName.startsWith('11') ||
-                  grade.gradeLevel === '10°' ||
-                  grade.gradeLevel === '11°';
-                const isBeyondJornada = shift === 'morning' && p.period > 6 && !isSeniorHigh;
-                const isBlocked = !hasAssignedSubject && isBeyondJornada;
-                const isThisBlockDragging = Boolean(draggedBlock && block && draggedBlock.id === block.id);
-
-                return (
-                  <div
-                    key={grade.id}
-                    className={`p-1.5 border-r border-b transition-colors min-h-[135px] flex flex-col justify-stretch ${
-                      isCurrent
-                        ? 'bg-yellow-50/80 border-b-amber-300/60 shadow-inner'
-                        : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <MatrixCell
-                      grade={grade}
-                      period={p.period}
-                      block={block}
-                      pending={pending}
-                      officialSubjects={officialSubjects}
-                      allTimeBlocks={timeBlocks}
-                      draggedBlock={draggedBlock}
-                      droppableId={droppableId}
-                      isThisBlockDragging={isThisBlockDragging}
-                      isBlocked={isBlocked}
-                      isHoliday={isHoliday}
-                      isSelected={Boolean(
-                        (selectedCellIds && (selectedCellIds.has(droppableId) || (block && selectedCellIds.has(block.id)))) ||
-                        (selectedCells && (selectedCells.includes(droppableId) || (block && selectedCells.includes(block.id))))
-                      )}
-                      gradeIndex={gradeIdx}
-                      periodIndex={periods.findIndex((item) => item.period === p.period)}
-                      onSelectSlot={onSelectSlot}
-                      onDrop={handleSlotDrop}
-                      onDragStart={handleDragStart}
-                      onDrag={handleDrag}
-                      onDragEnd={handleDragEnd}
-                      updateGhostPosition={updateGhostPosition}
-                      onCellClick={onCellClick}
-                      onTrashClick={onTrashClick}
-                      onEmptyClick={onEmptyClick}
-                      onToggleSelect={onToggleSelect}
-                    />
+                <div
+                  className={`py-2.5 px-4 border-r border-b-2 flex items-center justify-center text-xs font-semibold tracking-wide transition-colors ${
+                    activeBreak
+                      ? 'bg-yellow-100/90 border-amber-400 text-amber-950 shadow-inner font-bold'
+                      : 'bg-amber-50/80 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-center space-x-3">
+                    <span className="w-8 h-px bg-amber-300"></span>
+                    <span>{breakLabel}</span>
+                    <span className="w-8 h-px bg-amber-300"></span>
                   </div>
-                );
-              })
-            )}
-          </React.Fragment>
-        );
-      })}
+                </div>
+              </React.Fragment>
+            );
+          })
+        ) : (
+          <>
+            {/* Sticky Left Corner for Break */}
+            <div
+              className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+                isBreakActive
+                  ? 'bg-amber-100 border-l-4 border-l-villa-magenta border-r-amber-400 border-b-amber-400 shadow-inner'
+                  : 'bg-amber-100 border-r border-b border-amber-300'
+              }`}
+            >
+              <div className="text-base font-bold text-amber-950 leading-tight">Receso</div>
+              <div className="text-sm font-medium text-amber-800 whitespace-nowrap mt-0.5">
+                de {breakStart} a {breakEnd}
+              </div>
+              {isBreakActive && (
+                <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                  En curso
+                </span>
+              )}
+            </div>
 
-        {/* HORIZONTAL PEDAGOGICAL BREAK ROW (Receso Escolar) */}
-        {/* Sticky Left Corner for Break */}
-        <div
-          className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2.5 transition-colors ${
-            isBreakActive
-              ? 'bg-amber-100 border-l-4 border-l-villa-magenta border-r-amber-400 border-b-amber-400 shadow-inner'
-              : 'bg-amber-100 border-r border-b border-amber-300'
-          }`}
-        >
-          <div className="text-lg font-bold text-amber-950 leading-tight">Receso</div>
-          <div className="text-sm font-medium text-amber-800 whitespace-nowrap mt-0.5">
-            de {breakStart} a {breakEnd}
-          </div>
-          {isBreakActive && (
-            <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
-              En curso
-            </span>
-          )}
-        </div>
+            {/* Break Description Spanning Across All Columns */}
+            <div
+              style={{ gridColumn: `span ${grades.length}` }}
+              className={`py-2.5 px-4 border-b-2 flex items-center justify-center text-xs font-semibold tracking-wide transition-colors ${
+                isBreakActive
+                  ? 'bg-yellow-100/90 border-amber-400 text-amber-950 shadow-inner font-bold'
+                  : 'bg-amber-50/80 border-amber-200 text-amber-900'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-3">
+                <span className="w-12 h-px bg-amber-300"></span>
+                <span>{breakLabel}</span>
+                <span className="w-12 h-px bg-amber-300"></span>
+              </div>
+            </div>
+          </>
+        )}
 
-        {/* Break Description Spanning Across All Columns */}
-        <div
-          style={{ gridColumn: `span ${grades.length}` }}
-          className={`py-2.5 px-4 border-b-2 flex items-center justify-center text-xs font-semibold tracking-wide transition-colors ${
-            isBreakActive
-              ? 'bg-yellow-100/90 border-amber-400 text-amber-950 shadow-inner font-bold'
-              : 'bg-amber-50/80 border-amber-200 text-amber-900'
-          }`}
-        >
-          <div className="flex items-center justify-center space-x-3">
-            <span className="w-12 h-px bg-amber-300"></span>
-            <span>{breakLabel}</span>
-            <span className="w-12 h-px bg-amber-300"></span>
-          </div>
-        </div>
-
-        {/* PERIODS 4 ONWARDS (Up to 11 for Bachillerato, 6 for Primaria) */}
+        {/* PERIODS 4 ONWARDS (Up to 11 for Bachillerato, 5 for Primaria/Transición) */}
         {secondHalf.map((p) => {
+          if (isTransicion) {
+            return (
+              <React.Fragment key={p.period}>
+                {grades.map((grade, gradeIdx) => {
+                  const isT2 = grade.id === 'g-trans-2' || grade.fullName === 'Transición 2';
+                  const slotTime = isT2 && p.secondaryTime ? p.secondaryTime : p.time;
+                  const [startTime, endTime] = slotTime.split(' - ');
+                  const isCurrent = isPeriodActive(slotTime);
+
+                  return (
+                    <React.Fragment key={`${p.period}-${grade.id}`}>
+                      <div
+                        className={`w-36 min-w-[8.5rem] max-w-[8.5rem] ${
+                          gradeIdx === 0 ? 'sticky left-0 z-30' : ''
+                        } border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
+                          isCurrent
+                            ? 'bg-yellow-50 border-l-4 border-l-villa-magenta border-r-amber-300 border-b-amber-300 shadow-inner ring-1 ring-amber-300/40'
+                            : 'bg-slate-100 border-gray-300'
+                        }`}
+                      >
+                        <div className="text-base font-bold text-gray-900 leading-tight">
+                          {p.ordinal}
+                        </div>
+                        <div className="text-sm font-medium text-gray-600 whitespace-nowrap mt-0.5">
+                          de {startTime} a {endTime}
+                        </div>
+                        {isCurrent && (
+                          <span className="inline-flex items-center px-1.5 py-0.2 mt-1 rounded-full text-[9px] font-extrabold uppercase bg-villa-magenta text-white shadow-2xs animate-pulse">
+                            En curso
+                          </span>
+                        )}
+                      </div>
+                      {renderGradeCell(grade, gradeIdx, p, isCurrent)}
+                    </React.Fragment>
+                  );
+                })}
+              </React.Fragment>
+            );
+          }
+
           const [startTime, endTime] = p.time.split(' - ');
           const isCurrent = isPeriodActive(p.time);
 
@@ -985,13 +1169,13 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
 
               {/* Sticky First Column: Period & Hour (z-30) */}
               <div
-                className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2.5 transition-colors ${
+                className={`w-36 min-w-[8.5rem] max-w-[8.5rem] sticky left-0 z-30 border-r border-b shadow-xs flex flex-col justify-center items-center text-center p-2 transition-colors ${
                   isCurrent
                     ? 'bg-yellow-50 border-l-4 border-l-villa-magenta border-r-amber-300 border-b-amber-300 shadow-inner ring-1 ring-amber-300/40'
                     : 'bg-slate-100 border-gray-300'
                 }`}
               >
-                <div className="text-lg font-bold text-gray-900 leading-tight">
+                <div className="text-base font-bold text-gray-900 leading-tight">
                   {p.ordinal}
                 </div>
                 <div className="text-sm font-medium text-gray-600 whitespace-nowrap mt-0.5">
@@ -1005,83 +1189,10 @@ export const DesktopMatrixGrid: React.FC<DesktopMatrixGridProps> = ({
               </div>
 
               {/* Droppable data cells for each grade */}
-              {grades.map((grade, gradeIdx) => {
-                const block =
-                  timeBlocks.find((b) => b.gradeId === grade.id && b.period === p.period) || null;
-                const pending = block
-                  ? pendingRequests.find((r) => r.teacher_id === block.teacherId) || null
-                  : null;
-                const droppableId = createSlotDroppableId(grade, p.period);
-
-                const hasAssignedSubject = Boolean(
-                  block &&
-                  block.status !== 'cancelled' &&
-                  (
-                    block.block_type === 'novelty' ||
-                    Boolean(block.motivo_novedad) ||
-                    (
-                      block.subject &&
-                      block.subject.trim() !== '' &&
-                      block.block_type !== 'exit' &&
-                      !block.subject.toUpperCase().includes('SALIDA') &&
-                      !block.subject.toUpperCase().includes('NO DISPONIBLE') &&
-                      !block.subject.toUpperCase().includes('SIN ASIGNACI')
-                    )
-                  )
-                );
-                const isSeniorHigh =
-                  grade.fullName.startsWith('10') ||
-                  grade.fullName.startsWith('11') ||
-                  grade.gradeLevel === '10°' ||
-                  grade.gradeLevel === '11°';
-                const isBeyondJornada = shift === 'morning' && p.period > 6 && !isSeniorHigh;
-                const isBlocked = !hasAssignedSubject && isBeyondJornada;
-                const isThisBlockDragging = Boolean(draggedBlock && block && draggedBlock.id === block.id);
-
-                return (
-                  <div
-                    key={grade.id}
-                    className={`p-1.5 border-r border-b transition-colors min-h-[135px] flex flex-col justify-stretch ${
-                      isCurrent
-                        ? 'bg-yellow-50/80 border-b-amber-300/60 shadow-inner'
-                        : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <MatrixCell
-                      grade={grade}
-                      period={p.period}
-                      block={block}
-                      pending={pending}
-                      officialSubjects={officialSubjects}
-                      allTimeBlocks={timeBlocks}
-                      draggedBlock={draggedBlock}
-                      droppableId={droppableId}
-                      isThisBlockDragging={isThisBlockDragging}
-                      isBlocked={isBlocked}
-                      isHoliday={isHoliday}
-                      isSelected={Boolean(
-                        (selectedCellIds && (selectedCellIds.has(droppableId) || (block && selectedCellIds.has(block.id)))) ||
-                        (selectedCells && (selectedCells.includes(droppableId) || (block && selectedCells.includes(block.id))))
-                      )}
-                      gradeIndex={gradeIdx}
-                      periodIndex={periods.findIndex((item) => item.period === p.period)}
-                      onSelectSlot={onSelectSlot}
-                      onDrop={handleSlotDrop}
-                      onDragStart={handleDragStart}
-                      onDrag={handleDrag}
-                      onDragEnd={handleDragEnd}
-                      updateGhostPosition={updateGhostPosition}
-                      onCellClick={onCellClick}
-                      onTrashClick={onTrashClick}
-                      onEmptyClick={onEmptyClick}
-                      onToggleSelect={onToggleSelect}
-                    />
-                  </div>
-                );
-            })}
-          </React.Fragment>
-        );
-      })}
+              {grades.map((grade, gradeIdx) => renderGradeCell(grade, gradeIdx, p, isCurrent))}
+            </React.Fragment>
+          );
+        })}
       </div>
     </div>
   );

@@ -87,7 +87,7 @@ export const ResetConfirmationModal: React.FC<ResetConfirmationModalProps> = ({
             </div>
 
             <p className="text-slate-600 leading-normal">
-              Se eliminará toda la memoria local y se reiniciará el estado de la aplicación a su valor inicial de fábrica de la Institución Educativa Villa Flora.
+              Se eliminará toda la memoria local y se restaurará la grilla base definitiva consolidada 2026 de la Institución Educativa Villa Flora.
             </p>
 
             {/* Input de Verificación (State Match) */}

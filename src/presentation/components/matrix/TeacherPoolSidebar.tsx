@@ -161,15 +161,26 @@ export const TeacherPoolSidebar: React.FC<TeacherPoolSidebarProps> = ({
         </div>
 
         <div className="p-3 border-b border-slate-200 bg-slate-50 shrink-0 space-y-2">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative flex items-center">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar docente o materia..."
-              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-200 transition"
+              className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-200 transition"
             />
+            {search.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-0.5 rounded-full transition cursor-pointer"
+                title="Limpiar búsqueda"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center justify-between text-[10px] font-semibold px-0.5">
             <span className="inline-flex items-center gap-1 text-emerald-700">

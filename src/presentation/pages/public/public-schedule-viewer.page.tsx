@@ -11,6 +11,7 @@ import {
   Sun,
   Moon,
   ChevronDown,
+  X,
 } from 'lucide-react';
 import {
   getPublicScheduleSnapshot,
@@ -37,19 +38,20 @@ const DAYS: { key: DayOfWeek; label: string }[] = [
 
 const SHIFT_LABELS: Record<ShiftType, string> = {
   morning: 'Bachillerato (Mañana)',
-  afternoon: 'Primaria y T2 (Tarde)',
-  'transicion-1': 'Transición 1',
+  afternoon: 'Primaria (Tarde)',
+  'transicion-1': 'Transición',
 };
 
 const SHIFT_GRADES: Record<ShiftType, string[]> = {
   morning: ['6°1', '6°2', '7°1', '7°2', '8°1', '8°2', '9°1', '9°2', '10°1', '10°2', '11°1', '11°2'],
-  afternoon: ['Transición 2', '1.1', '1.2', '2.1', '2.2', '3.1', '3.2', '3.3', '4.1', '4.2', '5.1', '5.2'],
-  'transicion-1': ['Transición 1'],
+  afternoon: ['1.1', '1.2', '2.1', '2.2', '3.1', '3.2', '3.3', '4.1', '4.2', '5.1', '5.2'],
+  'transicion-1': ['Transición 1', 'Transición 2'],
 };
 
 interface PublicSlotConfig {
   period: number;
   time: string;
+  secondaryTime?: string;
   label: string;
   isBreak?: boolean;
   isTransition?: boolean;
@@ -76,33 +78,30 @@ function buildDynamicPublicSlots(
     if (isMeetingDay) {
       list.push({
         period: -2,
-        time: '12:00 - 12:45',
+        time: '06:30 - 07:00',
+        secondaryTime: '12:00 - 12:30',
         label: 'Pre-Jornada',
         isPreJornada: true,
         meetingTitle: 'ATENCIÓN A PADRES',
         meetingDesc:
-          'Franja institucional de excepción (12:00 a 12:45) • Transición 1 • Sin asignación de clases ni sustituciones',
+          'Franja institucional de excepción • T1 (06:30 a 07:00) / T2 (12:00 a 12:30) • Sin asignación de clases ni sustituciones',
       });
     }
-    let cur = isMeetingDay ? 12 * 60 + 45 : 12 * 60 + 30;
-    for (let p = 1; p <= 3; p++) {
-      const end = cur + 55;
-      list.push({ period: p, time: `${formatMinToTime(cur)} - ${formatMinToTime(end)}`, label: `${p}ª Hora` });
-      cur = end;
-    }
-    const bEnd = cur + 30;
-    list.push({
-      period: 0,
-      time: `${formatMinToTime(cur)} - ${formatMinToTime(bEnd)}`,
-      label: 'Descanso Pedagógico y Alimentación Escolar',
-      isBreak: true,
-    });
-    cur = bEnd;
-    for (let p = 4; p <= 5; p++) {
-      const end = cur + 55;
-      list.push({ period: p, time: `${formatMinToTime(cur)} - ${formatMinToTime(end)}`, label: `${p}ª Hora` });
-      cur = end;
-    }
+    const transicionSlots: PublicSlotConfig[] = [
+      { period: 1, time: '07:00 - 07:50', secondaryTime: '12:30 - 13:20', label: '1ª Hora' },
+      { period: 2, time: '07:50 - 08:40', secondaryTime: '13:20 - 14:10', label: '2ª Hora' },
+      { period: 3, time: '08:40 - 09:30', secondaryTime: '14:10 - 15:00', label: '3ª Hora' },
+      {
+        period: 0,
+        time: '09:30 - 10:20',
+        secondaryTime: '15:00 - 15:50',
+        label: 'Descanso Pedagógico y Alimentación Escolar',
+        isBreak: true,
+      },
+      { period: 4, time: '10:20 - 11:10', secondaryTime: '15:50 - 16:40', label: '4ª Hora' },
+      { period: 5, time: '11:10 - 12:00', secondaryTime: '16:40 - 17:30', label: '5ª Hora' },
+    ];
+    list.push(...transicionSlots);
     return list;
   }
 
@@ -116,7 +115,7 @@ function buildDynamicPublicSlots(
         isPreJornada: true,
         meetingTitle: 'ATENCIÓN A PADRES',
         meetingDesc:
-          'Franja institucional previa a la jornada lectiva (11:30 a 12:10) • Primaria y Transición 2 • Sin asignación de clases ni sustituciones',
+          'Franja institucional previa a la jornada lectiva (11:30 a 12:10) • Primaria • Sin asignación de clases ni sustituciones',
       });
     }
     let cur = isEventDay ? 13 * 60 : 12 * 60 + 30;
@@ -200,6 +199,10 @@ function buildDynamicPublicSlots(
 }
 
 function resolveBlockShift(b: TimeBlockEntity): ShiftType {
+  const g = (b.gradeName || '').trim().toLowerCase();
+  if (g.includes('transición') || g.includes('transicion')) {
+    return 'transicion-1';
+  }
   const s = String(b.shift || '').toLowerCase().trim();
   if (s === 'morning' || s === 'manana' || s === 'mañana' || s === 'bachillerato') {
     return 'morning';
@@ -207,18 +210,10 @@ function resolveBlockShift(b: TimeBlockEntity): ShiftType {
   if (s === 'afternoon' || s === 'tarde' || s === 'primaria') {
     return 'afternoon';
   }
-  if (s === 'transicion-1' || s === 'transición-1' || s === 'transicion 1' || s === 'transición 1') {
+  if (s.includes('transicion') || s.includes('transición')) {
     return 'transicion-1';
   }
-  const g = (b.gradeName || '').trim();
-  if (g.toLowerCase().includes('transición 1') || g.toLowerCase().includes('transicion 1')) {
-    return 'transicion-1';
-  }
-  if (
-    g.toLowerCase().includes('transición 2') ||
-    g.toLowerCase().includes('transicion 2') ||
-    /^[1-5]\./.test(g)
-  ) {
+  if (/^[1-5]\./.test(g)) {
     return 'afternoon';
   }
   return 'morning';
@@ -578,7 +573,7 @@ export const PublicScheduleViewerPage: React.FC = () => {
                 }`}
               >
                 <Moon className={`w-3.5 h-3.5 ${selectedShift === 'afternoon' ? 'text-sky-300' : 'text-slate-500'}`} />
-                <span>Primaria y T2 (Tarde)</span>
+                <span>Primaria (Tarde)</span>
               </button>
 
               <button
@@ -593,7 +588,7 @@ export const PublicScheduleViewerPage: React.FC = () => {
                 <Sparkles
                   className={`w-3.5 h-3.5 ${selectedShift === 'transicion-1' ? 'text-purple-400' : 'text-slate-500'}`}
                 />
-                <span>Transición 1</span>
+                <span>Transición</span>
               </button>
             </div>
           </div>
@@ -733,11 +728,18 @@ export const PublicScheduleViewerPage: React.FC = () => {
                       <span className="w-2 h-2 rounded-full bg-[#0c4da2] shrink-0" />
                     )}
                   </button>
-                  {teachers.map((t) => {
-                    const isSelected = selectedTeacher === t.displayName;
-                    return (
-                      <button
-                        key={t.id}
+                  {teachers
+                    .filter(
+                      (t) =>
+                        t.id !== 't-adriana-mier' &&
+                        !String(t.displayName || '').toLowerCase().includes('adriana mier') &&
+                        !String(t.displayName || '').toLowerCase().includes('adriana luc')
+                    )
+                    .map((t) => {
+                      const isSelected = selectedTeacher === t.displayName;
+                      return (
+                        <button
+                          key={t.id}
                         type="button"
                         onClick={() => {
                           setSelectedTeacher(t.displayName);
@@ -764,15 +766,26 @@ export const PublicScheduleViewerPage: React.FC = () => {
             </div>
 
             {/* Búsqueda rápida */}
-            <div className="relative">
+            <div className="relative flex items-center">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar asignatura o aula..."
-                className="h-8 pl-8 pr-3 bg-white hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-[#0c4da2] focus:ring-1 focus:ring-[#0c4da2] rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition shadow-2xs w-48 sm:w-56"
+                className="h-8 pl-8 pr-7 bg-white hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-[#0c4da2] focus:ring-1 focus:ring-[#0c4da2] rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition shadow-2xs w-48 sm:w-56"
               />
+              {searchTerm.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition p-0.5 rounded-full cursor-pointer"
+                  title="Limpiar búsqueda"
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -857,23 +870,46 @@ export const PublicScheduleViewerPage: React.FC = () => {
             <table className="w-full table-fixed border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="p-2 font-bold text-slate-500 uppercase tracking-wider text-[10px] w-24 sm:w-28 border-r border-slate-200 bg-slate-50 whitespace-nowrap">
-                    Horario {activeScheduleType}
-                  </th>
-                  {activeGrades.map((g) => (
-                    <th key={g} className="p-1.5 font-bold text-slate-800 text-center border-r border-slate-200 last:border-r-0 truncate">
-                      <span className="inline-block px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200/60 font-extrabold text-[11px] truncate max-w-full">
-                        {g}
-                      </span>
-                    </th>
-                  ))}
+                  {selectedShift === 'transicion-1' ? (
+                    activeGrades.map((g) => (
+                      <React.Fragment key={`th-pair-${g}`}>
+                        <th className="p-2 font-extrabold text-slate-600 uppercase tracking-wider text-xs w-28 sm:w-32 border-r border-slate-200 bg-slate-50 whitespace-nowrap text-center">
+                          Horario {activeScheduleType}
+                        </th>
+                        <th className="p-1.5 font-bold text-slate-800 text-center border-r border-slate-200 last:border-r-0 truncate">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200/60 font-extrabold text-[11px] truncate max-w-full">
+                            {g}
+                          </span>
+                          {g === 'Transición 1' && (
+                            <div className="text-[9.5px] font-mono text-slate-500 font-semibold mt-0.5">07:00 - 12:00</div>
+                          )}
+                          {g === 'Transición 2' && (
+                            <div className="text-[9.5px] font-mono text-slate-500 font-semibold mt-0.5">12:30 - 17:30</div>
+                          )}
+                        </th>
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <>
+                      <th className="p-2 font-extrabold text-slate-600 uppercase tracking-wider text-xs w-28 sm:w-32 border-r border-slate-200 bg-slate-50 whitespace-nowrap text-center">
+                        Horario {activeScheduleType}
+                      </th>
+                      {activeGrades.map((g) => (
+                        <th key={g} className="p-1.5 font-bold text-slate-800 text-center border-r border-slate-200 last:border-r-0 truncate">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200/60 font-extrabold text-[11px] truncate max-w-full">
+                            {g}
+                          </span>
+                        </th>
+                      ))}
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {isHoliday && (
                   <tr className="bg-red-50 border-b-2 border-red-200">
                     <td
-                      colSpan={activeGrades.length + 1}
+                      colSpan={selectedShift === 'transicion-1' ? activeGrades.length * 2 : activeGrades.length + 1}
                       className="py-2 px-4 text-center font-extrabold text-red-800 text-xs tracking-wide"
                     >
                       📅 Día Festivo Institucional &bull; Sin actividad académica programada
@@ -882,12 +918,41 @@ export const PublicScheduleViewerPage: React.FC = () => {
                 )}
                 {activePeriodSlots.map((slot) => {
                   if (slot.isPreJornada && !isHoliday) {
+                    if (selectedShift === 'transicion-1') {
+                      return (
+                        <tr key="pre-jornada-public" className="bg-amber-50/80 border-y-2 border-amber-300">
+                          {activeGrades.map((g) => {
+                            const isT2 = g === 'Transición 2';
+                            const slotTime = isT2 && slot.secondaryTime ? slot.secondaryTime : slot.time;
+                            return (
+                              <React.Fragment key={`pre-jornada-${g}`}>
+                                <td className="p-2 bg-amber-50 border-r border-amber-300 w-28 sm:w-32 whitespace-nowrap align-middle text-center">
+                                  <div className="font-extrabold text-amber-900 text-sm uppercase whitespace-nowrap leading-tight">{slot.label}</div>
+                                  <div className="text-xs font-mono font-bold text-amber-800 flex items-center justify-center gap-1 mt-1 whitespace-nowrap">
+                                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span className="whitespace-nowrap">{slotTime}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center bg-amber-50/70 border-r border-amber-300 last:border-r-0">
+                                  <div className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                                    👥 {slot.meetingTitle}
+                                  </div>
+                                  <div className="text-xs font-semibold text-amber-900/80 mt-0.5">
+                                    Franja institucional de excepción ({slotTime}) &bull; Sin asignación de clases ni sustituciones
+                                  </div>
+                                </td>
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      );
+                    }
                     return (
                       <tr key="pre-jornada-public" className="bg-amber-50/80 border-y-2 border-amber-300">
-                        <td className="p-2 bg-amber-50 border-r border-amber-300 w-24 sm:w-28 whitespace-nowrap">
-                          <div className="font-extrabold text-amber-900 text-[11px] uppercase whitespace-nowrap">{slot.label}</div>
-                          <div className="text-[10px] font-mono text-amber-800 flex items-center gap-1 mt-0.5 whitespace-nowrap">
-                            <Clock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                        <td className="p-2 bg-amber-50 border-r border-amber-300 w-28 sm:w-32 whitespace-nowrap align-middle text-center">
+                          <div className="font-extrabold text-amber-900 text-sm uppercase whitespace-nowrap leading-tight">{slot.label}</div>
+                          <div className="text-xs font-mono font-bold text-amber-800 flex items-center justify-center gap-1 mt-1 whitespace-nowrap">
+                            <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                             <span className="whitespace-nowrap">{slot.time}</span>
                           </div>
                         </td>
@@ -904,6 +969,30 @@ export const PublicScheduleViewerPage: React.FC = () => {
                   }
 
                   if (slot.isBreak) {
+                    if (selectedShift === 'transicion-1') {
+                      return (
+                        <tr key={`break-${slot.period}`} className="bg-amber-50/70 border-y border-amber-200/80">
+                          {activeGrades.map((g) => {
+                            const isT2 = g === 'Transición 2';
+                            const slotTime = isT2 && slot.secondaryTime ? slot.secondaryTime : slot.time;
+                            return (
+                              <React.Fragment key={`break-${g}`}>
+                                <td className="p-2 bg-amber-100/80 border-r border-amber-200 w-28 sm:w-32 whitespace-nowrap align-middle text-center">
+                                  <div className="font-extrabold text-amber-950 text-sm whitespace-nowrap leading-tight">Receso</div>
+                                  <div className="text-xs font-mono font-bold text-amber-800 flex items-center justify-center gap-1 mt-1 whitespace-nowrap">
+                                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span className="whitespace-nowrap">{slotTime}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-4 text-center font-bold text-amber-900 text-xs tracking-wide border-r border-amber-200 last:border-r-0">
+                                  ☕ {slot.label}
+                                </td>
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      );
+                    }
                     return (
                       <tr key={`break-${slot.period}`} className="bg-amber-50/70 border-y border-amber-200/80">
                         <td
@@ -932,10 +1021,10 @@ export const PublicScheduleViewerPage: React.FC = () => {
                   if (slot.isMeetingFirstHour && !isHoliday) {
                     return (
                       <tr key="meeting-first-hour" className="bg-amber-50/70 border-y-2 border-amber-300">
-                        <td className="p-2 bg-slate-100 border-r border-slate-300 w-24 sm:w-28 whitespace-nowrap">
-                          <div className="font-extrabold text-blue-900 text-[11px] whitespace-nowrap">{slot.label}</div>
-                          <div className="text-[10px] font-mono text-slate-600 flex items-center gap-1 mt-0.5 whitespace-nowrap">
-                            <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                        <td className="p-2 bg-slate-100 border-r border-slate-300 w-28 sm:w-32 whitespace-nowrap align-middle text-center">
+                          <div className="font-extrabold text-[#0c4da2] text-sm sm:text-[15px] whitespace-nowrap leading-tight">{slot.label}</div>
+                          <div className="text-xs sm:text-[13px] font-mono font-bold text-slate-700 flex items-center justify-center gap-1 mt-1 whitespace-nowrap">
+                            <Clock className="w-3 h-3 text-slate-500 shrink-0" />
                             <span className="whitespace-nowrap">{slot.time}</span>
                           </div>
                         </td>
@@ -951,13 +1040,65 @@ export const PublicScheduleViewerPage: React.FC = () => {
                     );
                   }
 
+                  if (selectedShift === 'transicion-1') {
+                    return (
+                      <tr key={`slot-${slot.period}`} className="hover:bg-slate-50/50 transition">
+                        {activeGrades.map((grade) => {
+                          const isT2 = grade === 'Transición 2';
+                          const slotTime = isT2 && slot.secondaryTime ? slot.secondaryTime : slot.time;
+                          const cellBlocks = filteredBlocks.filter(
+                            (b) => b.period === slot.period && b.gradeName === grade
+                          );
+                          const primaryBlock =
+                            cellBlocks.length > 0
+                              ? cellBlocks.find((b) => b.block_type === 'novelty' || b.motivo_novedad) || cellBlocks[0]
+                              : null;
+
+                          return (
+                            <React.Fragment key={`${slot.period}-${grade}`}>
+                              <td className="p-2 bg-slate-50/80 border-r border-slate-200 w-28 sm:w-32 whitespace-nowrap align-middle text-center">
+                                <div className="font-extrabold text-[#0c4da2] text-sm sm:text-[15px] whitespace-nowrap leading-tight">{slot.label}</div>
+                                <div className="text-xs sm:text-[13px] font-mono font-bold text-slate-700 flex items-center justify-center gap-1 mt-1 whitespace-nowrap">
+                                  <Clock className="w-3 h-3 text-slate-500 shrink-0" />
+                                  <span className="whitespace-nowrap">{slotTime}</span>
+                                </div>
+                              </td>
+                              {isHoliday ? (
+                                <td className="p-0.5 border-r border-slate-200 last:border-r-0 align-top h-[104px] max-h-[108px] overflow-hidden">
+                                  <div className="h-full min-h-[94px] max-h-[100px] rounded-lg bg-gray-100 border border-gray-200 flex flex-col items-center justify-center text-center p-1.5 select-none space-y-0.5">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                      Festivo
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 font-medium leading-tight">
+                                      Sin actividad académica
+                                    </span>
+                                  </div>
+                                </td>
+                              ) : (
+                                <td className="p-0.5 border-r border-slate-200 last:border-r-0 align-top h-[104px] max-h-[108px] overflow-hidden">
+                                  {!primaryBlock ? (
+                                    <MatrixSlotCard timeBlock={null} />
+                                  ) : (
+                                    <div className="h-full max-h-[102px]">
+                                      <MatrixSlotCard key={primaryBlock.id} timeBlock={primaryBlock} />
+                                    </div>
+                                  )}
+                                </td>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tr>
+                    );
+                  }
+
                   return (
                     <tr key={`slot-${slot.period}`} className="hover:bg-slate-50/50 transition">
                       {/* Columna Horaria Fija */}
-                      <td className="p-2 bg-slate-50/80 border-r border-slate-200 w-24 sm:w-28 whitespace-nowrap align-top pt-2.5 sm:pt-3">
-                        <div className="font-extrabold text-blue-900 text-[11px] whitespace-nowrap">{slot.label}</div>
-                        <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1 mt-0.5 whitespace-nowrap">
-                          <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <td className="p-2 bg-slate-50/80 border-r border-slate-200 w-28 sm:w-32 whitespace-nowrap align-middle text-center">
+                        <div className="font-extrabold text-[#0c4da2] text-sm sm:text-[15px] whitespace-nowrap leading-tight">{slot.label}</div>
+                        <div className="text-xs sm:text-[13px] font-mono font-bold text-slate-700 flex items-center justify-center gap-1 mt-1 whitespace-nowrap">
+                          <Clock className="w-3 h-3 text-slate-500 shrink-0" />
                           <span className="whitespace-nowrap">{slot.time}</span>
                         </div>
                       </td>

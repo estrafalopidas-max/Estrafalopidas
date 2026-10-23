@@ -55,8 +55,8 @@ import {
 } from 'lucide-react';
 
 const BACHILLERATO_GRADE_LEVELS = ['all', '6°', '7°', '8°', '9°', '10°', '11°'];
-const PRIMARIA_GRADE_LEVELS = ['all', 'Transición', '1°', '2°', '3°', '4°', '5°'];
-const TRANSICION_GRADE_LEVELS = ['all', 'Transición'];
+const PRIMARIA_GRADE_LEVELS = ['all', '1°', '2°', '3°', '4°', '5°'];
+const TRANSICION_GRADE_LEVELS = ['all', 'Transición 1', 'Transición 2'];
 
 export const CoordinatorDesktopMatrixPage: React.FC = () => {
   // Shared Navbar Context: Level Toggle, Review Drawer, Pending Count, KPIs and Filters
@@ -127,20 +127,8 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
     [absenceRepo, timeBlockRepo]
   );
 
-  // Core Data States - Hidratación de Estado Inicial (Lazy Initialization con Local Storage / API)
+  // Core Data States - Hidratación de Estado Inicial Consolidada 2026
   const [timeBlocks, setTimeBlocks] = useState<TimeBlockEntity[]>(() => {
-    try {
-      const saved = localStorage.getItem('villaFloraMatrix') || localStorage.getItem('ievf_time_blocks_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.warn('[CoordinatorMatrix] Error parseando datos guardados en localStorage:', err);
-    }
-    // Si aún no existen datos en el navegador, inicializar y sembrar mockData
     ensureSeedDataLoaded();
     try {
       const saved = localStorage.getItem('villaFloraMatrix') || localStorage.getItem('ievf_time_blocks_v1');
@@ -151,7 +139,7 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
         }
       }
     } catch (err) {
-      console.warn('[CoordinatorMatrix] Error al leer semilla inicial:', err);
+      console.warn('[CoordinatorMatrix] Error al leer semilla consolidada 2026:', err);
     }
     return generateSeedBlocks();
   });
@@ -254,8 +242,9 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
     });
   }, [timeBlocks]);
 
-  // Sincronización Continua (Write-Through Cache + Cloud Sync):
-  // Cada vez que la coordinadora elimine, mueva, resetee, asigne una novedad o cambie Día festivo / Atención a padres, este efecto actualiza localStorage y sincroniza con Firestore
+  // Sincronización Continua (Write-Through Cache + Cloud Sync con Debounce de 3s y Deduplicación por Hash):
+  // Guarda instantáneamente en localStorage y agrupa cambios antes de sincronizar con Firestore
+  const isFirstSyncRenderRef = useRef(true);
   useEffect(() => {
     if (Array.isArray(timeBlocks) && timeBlocks.length > 0) {
       localStorage.setItem('villaFloraMatrix', JSON.stringify(timeBlocks));
@@ -274,11 +263,18 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
             scheduleTypes,
           }
         );
+
+        // No disparar escritura en la nube solo por cargar o recargar la página
+        if (isFirstSyncRenderRef.current) {
+          isFirstSyncRenderRef.current = false;
+          return;
+        }
+
         const timer = setTimeout(() => {
           publishScheduleToCloud(snapshot).catch((err) => {
             console.warn('[CoordinatorMatrix] Error sincronizando cambios en la nube:', err);
           });
-        }, 500);
+        }, 3000);
         return () => clearTimeout(timer);
       }
     }
@@ -327,14 +323,12 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
     const unsubUsers = userRepo.subscribe((allUsers) => {
       if (!isMounted) return;
       setTeachers(allUsers.filter((u) => u.role === 'teacher'));
-      setTimeBlocks((prev) => [...prev]);
     });
 
     const handleTeacherUpdated = () => {
       if (!isMounted) return;
       userRepo.getTeachers().then((t) => {
-        setTeachers(t);
-        setTimeBlocks((prev) => [...prev]);
+        if (isMounted) setTeachers(t);
       });
     };
 
@@ -373,6 +367,7 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
       list = list.filter(
         (g) =>
           g.gradeLevel === selectedGrade ||
+          g.fullName === selectedGrade ||
           g.fullName.startsWith(cleanLevel) ||
           g.fullName.includes(selectedGrade)
       );
@@ -688,7 +683,11 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
     // Period timing calculations with dynamic schedule
     const { periods: periodDefs } = generateMatrixSchedule(selectedShift, isMeetingDay, isEventDay);
     const periodInfo = periodDefs.find((p) => p.period === targetSlot.period);
-    const [startTime, endTime] = (periodInfo?.time || (selectedShift === 'morning' ? '06:10 - 07:05' : '12:30 - 13:25')).split(' - ');
+    const isTargetT2 = targetGrade.id === 'g-trans-2' || targetGrade.fullName === 'Transición 2';
+    const rawTimeRange =
+      (isTargetT2 && periodInfo?.secondaryTime ? periodInfo.secondaryTime : periodInfo?.time) ||
+      (selectedShift === 'morning' ? '06:10 - 07:05' : isTargetT2 ? '12:30 - 13:20' : '07:00 - 07:50');
+    const [startTime, endTime] = rawTimeRange.split(' - ');
     const targetClassroomId = targetGrade.defaultClassroomId || draggedBlock?.classroomId || 'aula-base';
     const targetClassroomName = targetGrade.defaultClassroomId || draggedBlock?.classroomName || 'Aula Base';
 
@@ -984,7 +983,11 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
           } else {
             const grade = grades.find((g) => g.id === parsed.gradeId);
             const periodInfo = allPeriods.find((p) => p.period === parsed.period);
-            const [st, et] = (periodInfo?.time || '06:10 - 07:05').split(' - ');
+            const isT2 = grade?.id === 'g-trans-2' || grade?.fullName === 'Transición 2';
+            const [st, et] = (
+              (isT2 && periodInfo?.secondaryTime ? periodInfo.secondaryTime : periodInfo?.time) ||
+              '06:10 - 07:05'
+            ).split(' - ');
             if (grade) {
               batchBlocks.push({
                 id: `tb-${grade.id}-${selectedDay}-p${parsed.period}`,
@@ -1148,15 +1151,12 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
         localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(updatedList));
         localStorage.setItem('villaFloraMatrix', JSON.stringify(updatedList));
         window.dispatchEvent(new Event('schedule_matrix_updated'));
-        const publicSnap = savePublicScheduleSnapshot(
+        savePublicScheduleSnapshot(
           updatedList,
           teachers,
           currentPeriod,
           currentAcademicWeek
         );
-        void publishScheduleToCloud(publicSnap).catch((err) => {
-          console.warn('[handleConfirmNovelty] Error auto-sincronizando reseteo en cloud:', err);
-        });
         await timeBlockRepo.updateBatch(
           targetBlocks.map((b) => ({
             id: b.id,
@@ -1214,15 +1214,12 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
         localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(updatedList));
         localStorage.setItem('villaFloraMatrix', JSON.stringify(updatedList));
         window.dispatchEvent(new Event('schedule_matrix_updated'));
-        const publicSnap = savePublicScheduleSnapshot(
+        savePublicScheduleSnapshot(
           updatedList,
           teachers,
           currentPeriod,
           currentAcademicWeek
         );
-        void publishScheduleToCloud(publicSnap).catch((err) => {
-          console.warn('[handleConfirmNovelty] Error auto-sincronizando novedad en cloud:', err);
-        });
         await timeBlockRepo.updateBatch(
           targetBlocks.map((b) => ({
             id: b.id,
@@ -1245,8 +1242,10 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
     (grade: GradeEntity, period: number, block: TimeBlockEntity | null, _slotId: string) => {
       const { periods: periodDefs } = generateMatrixSchedule(selectedShift, isMeetingDay, isEventDay);
       const periodInfo = periodDefs.find((p) => p.period === period);
+      const isT2 = grade.id === 'g-trans-2' || grade.fullName === 'Transición 2';
       const [startTime, endTime] = (
-        periodInfo?.time || (selectedShift === 'morning' ? '06:10 - 07:05' : '12:30 - 13:25')
+        (isT2 && periodInfo?.secondaryTime ? periodInfo.secondaryTime : periodInfo?.time) ||
+        (selectedShift === 'morning' ? '06:10 - 07:05' : isT2 ? '12:30 - 13:20' : '12:30 - 13:25')
       ).split(' - ');
 
       setQuickAssignTarget({
@@ -1363,15 +1362,12 @@ export const CoordinatorDesktopMatrixPage: React.FC = () => {
       localStorage.setItem('ievf_time_blocks_v1', JSON.stringify(nextList));
       localStorage.setItem('villaFloraMatrix', JSON.stringify(nextList));
       window.dispatchEvent(new Event('schedule_matrix_updated'));
-      const publicSnap = savePublicScheduleSnapshot(
+      savePublicScheduleSnapshot(
         nextList,
         teachers,
         currentPeriod,
         currentAcademicWeek
       );
-      void publishScheduleToCloud(publicSnap).catch((e) => {
-        console.warn('[handleAssignInstitutionalEvent] Error syncing public cloud:', e);
-      });
       await timeBlockRepo.update(blockId, newBlock);
     } catch (err) {
       console.error('[handleAssignInstitutionalEvent] Error guardando evento institucional:', err);

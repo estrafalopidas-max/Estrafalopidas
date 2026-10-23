@@ -85,12 +85,59 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
+const QUOTA_BACKOFF_KEY = 'ievf_fb_quota_backoff_until';
+const LAST_PUBLISHED_HASH_KEY = 'ievf_last_published_hash_v1';
+
+function isQuotaExceededError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  const code = (error as any)?.code || '';
+  return (
+    code === 'resource-exhausted' ||
+    msg.includes('Quota exceeded') ||
+    msg.includes('resource-exhausted')
+  );
+}
+
+function isQuotaBackedOff(): boolean {
+  try {
+    const until = Number(sessionStorage.getItem(QUOTA_BACKOFF_KEY) || '0');
+    return Date.now() < until;
+  } catch {
+    return false;
+  }
+}
+
+function markQuotaBackedOff(): void {
+  try {
+    sessionStorage.setItem(QUOTA_BACKOFF_KEY, String(Date.now() + 15 * 60 * 1000));
+  } catch {
+    // ignore
+  }
+}
+
+function computeSimpleHash(input: string): string {
+  let h1 = 0xdeadbeef ^ input.length;
+  let h2 = 0x41c6ce57 ^ input.length;
+  for (let i = 0, ch; i < input.length; i++) {
+    ch = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
 async function testConnection() {
   try {
-    if (sessionStorage.getItem('ievf_fb_tested') === '1') return;
-    sessionStorage.setItem('ievf_fb_tested', '1');
+    if (localStorage.getItem('ievf_fb_tested') === '1' || isQuotaBackedOff()) return;
+    localStorage.setItem('ievf_fb_tested', '1');
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markQuotaBackedOff();
+      return;
+    }
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error('Please check your Firebase configuration.');
     }
@@ -103,6 +150,7 @@ const SCHEDULE_COLLECTION = 'published_schedules';
 const OFFICIAL_DOC_ID = 'official';
 const LAST_FETCH_KEY = 'ievf_cloud_schedule_fetched_at';
 const DAY_CONFIG_BLOCK_ID = '__ievf_day_configs__';
+const FETCH_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutos de caché para evitar lecturas repetidas al recargar
 
 export interface CloudPublishedScheduleData extends PublicScheduleSnapshot {
   shortUrl?: string;
@@ -169,8 +217,13 @@ export async function shortenUrlExternal(longUrl?: string): Promise<{ shortUrl: 
 export async function publishScheduleToCloud(
   snapshot: PublicScheduleSnapshot,
   shortUrl?: string,
-  shortCode = 'vf'
+  shortCode = 'vf',
+  forceWrite = false
 ): Promise<void> {
+  if (isQuotaBackedOff()) {
+    return;
+  }
+
   const docPath = `${SCHEDULE_COLLECTION}/${OFFICIAL_DOC_ID}`;
   const sanitizedBlocks = snapshot.timeBlocks
     .filter((b) => b.id !== DAY_CONFIG_BLOCK_ID)
@@ -224,6 +277,28 @@ export async function publishScheduleToCloud(
     color: String(t.color || '#007DC5'),
   }));
 
+  // Deduplicación estricta por hash de contenido: evita escrituras redundantes en Firestore si la grilla no cambió
+  const contentFingerprint = computeSimpleHash(
+    JSON.stringify({
+      b: sanitizedBlocks,
+      t: sanitizedTeachers,
+      p: snapshot.metadata.academicPeriod,
+      w: snapshot.metadata.academicWeek,
+      s: shortUrl || '',
+    })
+  );
+
+  if (!forceWrite) {
+    try {
+      const lastHash = localStorage.getItem(LAST_PUBLISHED_HASH_KEY);
+      if (lastHash === contentFingerprint) {
+        return;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const payload: Record<string, unknown> = {
     institutionName: String(snapshot.metadata.institutionName || 'Institución Educativa Villa Flora').slice(0, 200),
     academicPeriod: String(snapshot.metadata.academicPeriod || '3° Periodo').slice(0, 100),
@@ -241,33 +316,63 @@ export async function publishScheduleToCloud(
 
   try {
     await setDoc(doc(db, SCHEDULE_COLLECTION, OFFICIAL_DOC_ID), payload);
+    localStorage.setItem(LAST_PUBLISHED_HASH_KEY, contentFingerprint);
     localStorage.setItem(LAST_FETCH_KEY, String(Date.now()));
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markQuotaBackedOff();
+      console.warn('[Firebase] Cuota diaria alcanzada. Operando en modo local sin interrupción.');
+      return;
+    }
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
 }
 
 export function subscribeToPublishedSchedule(
   onUpdate: (data: CloudPublishedScheduleData) => void,
-  _forceRefresh = false
+  forceRefresh = false
 ): () => void {
   const docPath = `${SCHEDULE_COLLECTION}/${OFFICIAL_DOC_ID}`;
 
-  try {
-    const cachedRaw = localStorage.getItem('ievf_public_schedule_snapshot');
-    if (cachedRaw) {
-      const cachedData = JSON.parse(cachedRaw) as CloudPublishedScheduleData;
-      if (cachedData && Array.isArray(cachedData.timeBlocks) && cachedData.timeBlocks.length > 0) {
-        onUpdate(cachedData);
+  const loadFromLocalCache = (): boolean => {
+    try {
+      const cachedRaw = localStorage.getItem('ievf_public_schedule_snapshot');
+      if (cachedRaw) {
+        const cachedData = JSON.parse(cachedRaw) as CloudPublishedScheduleData;
+        if (cachedData && Array.isArray(cachedData.timeBlocks) && cachedData.timeBlocks.length > 0) {
+          onUpdate(cachedData);
+          return true;
+        }
       }
+    } catch {
+      // Ignorar error de lectura de caché inicial
     }
-  } catch {
-    // Ignorar error de lectura de caché inicial
+    return false;
+  };
+
+  const hasLocal = loadFromLocalCache();
+
+  // Escucha eventos locales (misma pestaña o pestañas del mismo navegador) con costo 0 en Firestore
+  const handleLocalStorageUpdate = () => {
+    loadFromLocalCache();
+  };
+  window.addEventListener('storage', handleLocalStorageUpdate);
+  window.addEventListener('schedule_matrix_updated', handleLocalStorageUpdate);
+
+  // Evita lecturas innecesarias a Firestore si el caché local es reciente (< 2 min) o si la cuota está en pausa
+  const lastFetch = Number(localStorage.getItem(LAST_FETCH_KEY) || '0');
+  const isCacheFresh = hasLocal && Date.now() - lastFetch < FETCH_CACHE_TTL_MS;
+
+  if (!forceRefresh && (isCacheFresh || isQuotaBackedOff())) {
+    return () => {
+      window.removeEventListener('storage', handleLocalStorageUpdate);
+      window.removeEventListener('schedule_matrix_updated', handleLocalStorageUpdate);
+    };
   }
 
-  const unsubscribe = onSnapshot(
-    doc(db, SCHEDULE_COLLECTION, OFFICIAL_DOC_ID),
-    (snapshot) => {
+  // Lectura puntual única (getDoc) en lugar de mantener un WebSocket permanente (onSnapshot)
+  getDoc(doc(db, SCHEDULE_COLLECTION, OFFICIAL_DOC_ID))
+    .then((snapshot) => {
       if (!snapshot.exists()) return;
       const raw = snapshot.data();
       if (!raw || !Array.isArray(raw.timeBlocks)) return;
@@ -328,13 +433,17 @@ export function subscribeToPublishedSchedule(
       }
 
       onUpdate(parsed);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.GET, docPath);
-    }
-  );
+    })
+    .catch((error) => {
+      if (isQuotaExceededError(error)) {
+        markQuotaBackedOff();
+        return;
+      }
+      console.warn('[Firebase] Lectura remota omitida, usando instantánea local:', error);
+    });
 
   return () => {
-    unsubscribe();
+    window.removeEventListener('storage', handleLocalStorageUpdate);
+    window.removeEventListener('schedule_matrix_updated', handleLocalStorageUpdate);
   };
 }
